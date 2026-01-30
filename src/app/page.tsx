@@ -1,10 +1,40 @@
-import InvoiceForm from "@/components/InvoiceForm";
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import InvoiceForm from '@/components/InvoiceForm';
+import { SplashScreen } from '@/components/SplashScreen';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
+    if (hasSeenSplash) {
+      setShowSplash(false);
+    }
+  }, []);
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('hasSeenSplash', 'true');
+    setShowSplash(false);
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-     <InvoiceForm/>
-    </main>
+    <>
+      <AnimatePresence>
+        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      </AnimatePresence>
+
+      {!showSplash && (
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-50 via-white to-sky-50">
+          <main className="flex-grow">
+            <InvoiceForm />
+          </main>
+          <Footer />
+        </div>
+      )}
+    </>
   );
 }

@@ -1,31 +1,61 @@
-"use client";
+'use client';
 
-import { generatePDF } from "@/utils/generateDoc";
-import { ChangeEvent, useState } from "react";
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  User,
+  Mail,
+  MapPin,
+  Phone,
+  FileText,
+  Calendar,
+  Plus,
+  Download,
+  DollarSign,
+  Tag,
+  FileCheck,
+} from 'lucide-react';
+import { Card } from './ui/Card';
+import { Input } from './ui/Input';
+import { Button } from './ui/Button';
+import { ServiceItem } from './ServiceItem';
+import { generatePDF } from '@/utils/generateDoc';
+import { Loader } from './ui/Loader';
+
+interface Service {
+  description: string;
+  date: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
 
 export default function InvoiceForm() {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingLabel, setGeneratingLabel] = useState('Generating PDF');
+
   const [clientInfo, setClientInfo] = useState({
-    name: "",
-    email: "",
-    address: "",
-    phone: "",
+    name: '',
+    email: '',
+    address: '',
+    phone: '',
   });
 
   const [invoiceDetails, setInvoiceDetails] = useState({
-    invoiceNumber: "",
-    invoiceDate: "",
-    dueDate: "",
+    invoiceNumber: '',
+    invoiceDate: '',
+    dueDate: '',
   });
 
-  const [services, setServices] = useState([
-    { description: "", date: "", quantity: 1, unitPrice: 0, total: 0 },
+  const [services, setServices] = useState<Service[]>([
+    { description: '', date: '', quantity: 1, unitPrice: 0, total: 0 },
   ]);
 
   const [tax, setTax] = useState(0);
   const [discount, setDiscount] = useState(0);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState('');
 
-  const handleInputChange = (e: { target: { name: any; value: any } }) => {
+  const handleInputChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     setClientInfo((prevInfo) => ({
       ...prevInfo,
@@ -33,7 +63,7 @@ export default function InvoiceForm() {
     }));
   };
 
-  const handleInvoiceChange = (e: { target: { name: any; value: any } }) => {
+  const handleInvoiceChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
     setInvoiceDetails((prevDetails) => ({
       ...prevDetails,
@@ -41,37 +71,19 @@ export default function InvoiceForm() {
     }));
   };
 
-  type Service = {
-    description: string;
-    date: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-  };
-
   const handleServiceChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const { name, value } = e.target;
-
-    const key = name as keyof Service;
-
     const newServices = [...services];
 
-    // Using a switch statement to ensure correct type assignment
-    switch (key) {
-      case "quantity":
-      case "unitPrice":
-        newServices[index][key] = Number(value);
-        break;
-      case "description":
-      case "date":
-        newServices[index][key] = value;
-        break;
+    if (name === 'quantity' || name === 'unitPrice') {
+      newServices[index][name as 'quantity' | 'unitPrice'] = Number(value);
+    } else {
+      newServices[index][name as 'description' | 'date'] = value;
     }
 
-    // Recalculate the total for the service
     newServices[index].total =
       newServices[index].quantity * newServices[index].unitPrice;
 
@@ -81,7 +93,7 @@ export default function InvoiceForm() {
   const addService = () => {
     setServices([
       ...services,
-      { description: "", date: "", quantity: 1, unitPrice: 0, total: 0 },
+      { description: '', date: '', quantity: 1, unitPrice: 0, total: 0 },
     ]);
   };
 
@@ -100,246 +112,289 @@ export default function InvoiceForm() {
     return totalAfterDiscount + tax;
   };
 
+  const handleGeneratePDF = async () => {
+    setIsGenerating(true);
+    setGeneratingLabel('Preparing invoice data');
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setGeneratingLabel('Creating PDF document');
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setGeneratingLabel('Applying formatting');
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setGeneratingLabel('Finalizing document');
+
+    generatePDF(
+      clientInfo,
+      invoiceDetails,
+      services,
+      tax,
+      discount,
+      notes,
+      calculateSubtotal(),
+      calculateGrandTotal()
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setIsGenerating(false);
+  };
+
   return (
-    <div className="p-6 bg-rose-800 shadow-lg rounded-lg max-w-[80%] mx-auto">
-      <h2 className="text-3xl font-semibold mb-6 text-center">Invoice Form</h2>
-      <form>
-        {/* Client and Invoice Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Client Information */}
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Client Information</h3>
-            <div className="mb-4">
-              <label className="block text-gray-100">Client Name</label>
-              <input
-                type="text"
-                name="name"
-                value={clientInfo.name}
-                onChange={handleInputChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-100">Client Email</label>
-              <input
-                type="email"
-                name="email"
-                value={clientInfo.email}
-                onChange={handleInputChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-100">Client Address</label>
-              <input
-                type="text"
-                name="address"
-                value={clientInfo.address}
-                onChange={handleInputChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-100">Client Phone</label>
-              <input
-                type="text"
-                name="phone"
-                value={clientInfo.phone}
-                onChange={handleInputChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-          </div>
+    <>
+      {isGenerating && <Loader label={generatingLabel} size="lg" fullScreen />}
 
-          {/* Invoice Details */}
-          <div>
-            <h3 className="text-xl font-semibold mb-4">Invoice Details</h3>
-            <div className="mb-4">
-              <label className="block text-gray-100">Invoice Number</label>
-              <input
-                type="text"
-                name="invoiceNumber"
-                value={invoiceDetails.invoiceNumber}
-                onChange={handleInvoiceChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-100">Invoice Date</label>
-              <input
-                type="date"
-                name="invoiceDate"
-                value={invoiceDetails.invoiceDate}
-                onChange={handleInvoiceChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-100">Due Date</label>
-              <input
-                type="date"
-                name="dueDate"
-                value={invoiceDetails.dueDate}
-                onChange={handleInvoiceChange}
-                className="input input-bordered input-ghost w-full"
-                required
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Services */}
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-4">Services</h3>
-          {services.map((service, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"
-            >
-              <div>
-                <label className="block text-gray-100">Description</label>
-                <input
-                  type="text"
-                  name="description"
-                  value={service.description}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  className="input input-bordered input-ghost w-full mb-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-100">Date of Service</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={service.date}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  className="input input-bordered input-ghost w-full mb-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-100">Quantity/Hours</label>
-                <input
-                  type="number"
-                  name="quantity"
-                  value={service.quantity}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  className="input input-bordered input-ghost w-full mb-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-100">Unit Price</label>
-                <input
-                  type="number"
-                  name="unitPrice"
-                  value={service.unitPrice}
-                  onChange={(e) => handleServiceChange(index, e)}
-                  className="input input-bordered input-ghost w-full mb-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-100">Total</label>
-                <input
-                  type="number"
-                  name="total"
-                  value={service.total}
-                  readOnly
-                  className="input input-bordered input-ghost w-full mb-2"
-                />
-              </div>
-              <div className="col-span-1 md:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => removeService(index)}
-                  className="btn btn-error w-full"
-                >
-                  Remove Service
-                </button>
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addService}
-            className="btn btn-secondary w-full mb-4"
-          >
-            Add Service
-          </button>
-        </div>
-
-        {/* Tax and Discount */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="block text-gray-100">Tax</label>
-            <input
-              type="number"
-              value={tax}
-              onChange={(e) => setTax(parseFloat(e.target.value))}
-              className="input input-bordered input-ghost w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-100">Discount</label>
-            <input
-              type="number"
-              value={discount}
-              onChange={(e) => setDiscount(parseFloat(e.target.value))}
-              className="input input-bordered input-ghost w-full"
-            />
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-4">Notes</h3>
-          <textarea
-            name="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="textarea textarea-bordered w-full"
-            rows={4}
-            placeholder="Additional notes or project summary"
-          />
-        </div>
-
-        {/* Total Amount Due */}
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-4">Total Amount Due</h3>
-          <input
-            type="number"
-            value={calculateGrandTotal()}
-            readOnly
-            className="input input-bordered input-ghost w-full"
-          />
-        </div>
-
-        {/* Generate Invoice Button */}
-        <button
-          type="button"
-          onClick={() =>
-            generatePDF(
-              clientInfo,
-              invoiceDetails,
-              services,
-              tax,
-              discount,
-              notes
-            )
-          }
-          className="btn btn-primary w-full"
+      <div className="w-full max-w-7xl mx-auto px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
         >
-          Generate Invoice PDF
-        </button>
-      </form>
-    </div>
+          <h1 className="text-5xl font-bold text-stone-800 mb-3">
+            Create Your Invoice
+          </h1>
+          <p className="text-lg text-stone-600">
+            Professional invoices in minutes
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
+                  <User className="w-5 h-5 text-sky-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800">
+                  Client Information
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Client Name"
+                  name="name"
+                  value={clientInfo.name}
+                  onChange={handleInputChange}
+                  placeholder="John Doe"
+                  icon={<User className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Email Address"
+                  type="email"
+                  name="email"
+                  value={clientInfo.email}
+                  onChange={handleInputChange}
+                  placeholder="john@example.com"
+                  icon={<Mail className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Address"
+                  name="address"
+                  value={clientInfo.address}
+                  onChange={handleInputChange}
+                  placeholder="123 Main St, City, Country"
+                  icon={<MapPin className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Phone Number"
+                  type="tel"
+                  name="phone"
+                  value={clientInfo.phone}
+                  onChange={handleInputChange}
+                  placeholder="+1 234 567 8900"
+                  icon={<Phone className="w-4 h-4" />}
+                  required
+                />
+              </div>
+            </Card>
+
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-sky-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800">
+                  Invoice Details
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Input
+                  label="Invoice Number"
+                  name="invoiceNumber"
+                  value={invoiceDetails.invoiceNumber}
+                  onChange={handleInvoiceChange}
+                  placeholder="INV-001"
+                  icon={<FileCheck className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Invoice Date"
+                  type="date"
+                  name="invoiceDate"
+                  value={invoiceDetails.invoiceDate}
+                  onChange={handleInvoiceChange}
+                  icon={<Calendar className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Due Date"
+                  type="date"
+                  name="dueDate"
+                  value={invoiceDetails.dueDate}
+                  onChange={handleInvoiceChange}
+                  icon={<Calendar className="w-4 h-4" />}
+                  required
+                />
+              </div>
+            </Card>
+
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-sky-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-stone-800">Services</h2>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={addService}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Add Service
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <AnimatePresence>
+                  {services.map((service, index) => (
+                    <ServiceItem
+                      key={index}
+                      service={service}
+                      index={index}
+                      onChange={handleServiceChange}
+                      onRemove={removeService}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </Card>
+
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-sky-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800">
+                  Additional Charges
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Tax ($)"
+                  type="number"
+                  value={tax}
+                  onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  icon={<DollarSign className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Discount ($)"
+                  type="number"
+                  value={discount}
+                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  icon={<Tag className="w-4 h-4" />}
+                />
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-stone-700 mb-1.5">
+                  Notes / Additional Information
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border-2 border-stone-200 rounded-lg text-stone-900 placeholder-stone-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none transition-all duration-200 min-h-[100px]"
+                  placeholder="Add any additional notes or payment instructions..."
+                />
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-1">
+            <Card variant="elevated" className="p-8 sticky top-8">
+              <h3 className="text-2xl font-bold text-stone-800 mb-6">Summary</h3>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between items-center pb-3 border-b border-stone-200">
+                  <span className="text-stone-600">Subtotal</span>
+                  <span className="text-lg font-semibold text-stone-800">
+                    ${calculateSubtotal().toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-stone-200">
+                  <span className="text-stone-600">Tax</span>
+                  <span className="text-lg font-semibold text-green-600">
+                    +${tax.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pb-3 border-b border-stone-200">
+                  <span className="text-stone-600">Discount</span>
+                  <span className="text-lg font-semibold text-red-600">
+                    -${discount.toFixed(2)}
+                  </span>
+                </div>
+
+                <motion.div
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  className="bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl p-6 text-white"
+                >
+                  <p className="text-sm opacity-90 mb-2">Total Amount Due</p>
+                  <p className="text-4xl font-bold">
+                    ${calculateGrandTotal().toFixed(2)}
+                  </p>
+                </motion.div>
+              </div>
+
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleGeneratePDF}
+                leftIcon={<Download className="w-5 h-5" />}
+                className="w-full"
+                isLoading={isGenerating}
+              >
+                Generate Invoice
+              </Button>
+
+              <p className="text-xs text-stone-500 text-center mt-4">
+                Your invoice will be downloaded as a PDF
+              </p>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
