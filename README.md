@@ -22,7 +22,7 @@ Whether you’re a solo freelancer or a growing business, Invoico provides the e
 
 ## 🏗️ Architecture Overview
 
-![Invoico System Architecture](docs/Invoico System Architecture (Professional).png)
+![Invoico System Architecture](docs/isa.png)
 
 ---
 
