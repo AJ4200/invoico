@@ -20,6 +20,12 @@ Whether you’re a solo freelancer or a growing business, Invoico provides the e
 
 ---
 
+## 🏗️ Architecture Overview
+
+![Invoico System Architecture](docs/invoico-system-architecture.svg)
+
+---
+
 ## 🧱 Tech Stack
 
 | Area | Technology |
