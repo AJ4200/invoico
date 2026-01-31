@@ -22,13 +22,22 @@ Whether you’re a solo freelancer or a growing business, Invoico provides the e
 
 ## 🧱 Tech Stack
 
-| Layer | Technology |
+| Area | Technology |
 |------|------------|
-| Frontend | React / Next.js |
-| Backend | Node.js / Express |
-| Database | SQLite / PostgreSQL |
-| Styling | Tailwind CSS |
-| PDF Generation | @react-pdf/renderer |
+| Framework | Next.js (App Router) |
+| Language | TypeScript |
+| UI & Styling | Tailwind CSS |
+| State / Logic | React Hooks |
+| Database | Prisma (SQLite / PostgreSQL) |
+| API Layer | Next.js Route Handlers |
+| PDF Generation | @react-pdf/renderer (or equivalent) |
+| Tooling | ESLint, Prettier |
+
+**Project Structure**
+
+- `/src` — Main application source (app routes, components, logic)
+- `/prisma` — Database schema and migrations (if present)
+- Root config files — `next.config.mjs`, `tailwind.config.ts`, `tsconfig.json`, etc.
 
 ---
 
@@ -41,34 +50,31 @@ git clone https://github.com/AJ4200/invoico.git
 cd invoico
 ```
 
-### 🧰 Backend Setup
+### 📦 Install Dependencies
+
+All dependencies are managed from the project root.
 
 ```bash
-cd backend
 npm install
 ```
 
-Create your environment configuration file:
+### 🔐 Environment Configuration
+
+Create a local environment file if required:
 
 ```bash
 cp .env.example .env
 ```
 
-Start the backend development server:
+Update environment variables such as database connection strings or API keys as needed.
+
+### ▶️ Run the App Locally
 
 ```bash
 npm run dev
 ```
 
-### 🖥 Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open your browser and navigate to:
+Open your browser at:
 
 ```text
 http://localhost:3000
@@ -104,8 +110,11 @@ Ensure sensitive values are kept secure, especially in production environments.
 
 ## 🗄️ Database & Migrations
 
-If using Prisma, run the following commands to set up the database:
+If Prisma is used in this project, database migrations and client generation can be run from the root:
 
+```bash
+npx prisma migrate dev
+npx prisma generate
 ```bash
 npx prisma migrate dev --name init
 npx prisma generate
@@ -113,17 +122,17 @@ npx prisma generate
 
 ---
 
-## 📡 API Endpoints
+## 📡 API Architecture
 
-| Method | Endpoint | Description |
-|-------|----------|-------------|
-| GET | /invoices | Fetch all invoices |
-| POST | /invoices | Create a new invoice |
-| GET | /invoices/:id | Fetch invoice by ID |
-| PUT | /invoices/:id | Update an existing invoice |
-| DELETE | /invoices/:id | Delete an invoice |
-| GET | /clients | Fetch all clients |
-| POST | /clients | Create a new client |
+Invoico uses **Next.js Route Handlers** for server-side logic and APIs.
+
+API routes are typically located under:
+
+```text
+/src/app/api
+```
+
+Endpoints are structured by feature (e.g., invoices, clients) and follow REST-like conventions.
 
 ---
 
