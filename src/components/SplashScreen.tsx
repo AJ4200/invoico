@@ -30,7 +30,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     <motion.div
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-gradient-to-br from-sky-50 via-white to-sky-100 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-gradient-to-br from-sky-50 via-white to-sky-100 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950 flex items-center justify-center z-50"
     >
       <div className="text-center">
         <motion.div
@@ -100,10 +100,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <h1 className="text-4xl font-bold text-stone-800 mb-2">
+          <h1 className="text-4xl font-bold text-stone-800 dark:text-stone-100 mb-2">
             Invoico
           </h1>
-          <p className="text-lg text-stone-600 mb-8">
+          <p className="text-lg text-stone-600 dark:text-stone-400 mb-8">
             Professional Invoice Generator
           </p>
         </motion.div>
@@ -114,14 +114,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
           transition={{ delay: 0.8 }}
           className="w-64 mx-auto"
         >
-          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               className="h-full bg-gradient-to-r from-sky-500 to-sky-600 rounded-full"
             />
           </div>
-          <p className="text-sm text-stone-500 mt-3">Loading... {progress}%</p>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-3">Loading... {progress}%</p>
         </motion.div>
       </div>
     </motion.div>

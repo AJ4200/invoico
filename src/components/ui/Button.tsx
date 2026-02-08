@@ -27,11 +27,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variants = {
-      primary: 'bg-sky-600 text-white hover:bg-sky-700 focus:ring-sky-500 shadow-md hover:shadow-lg',
-      secondary: 'bg-stone-600 text-white hover:bg-stone-700 focus:ring-stone-500 shadow-md hover:shadow-lg',
-      outline: 'border-2 border-sky-600 text-sky-600 hover:bg-sky-50 focus:ring-sky-500',
-      ghost: 'text-stone-700 hover:bg-stone-100 focus:ring-stone-500',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-md hover:shadow-lg',
+      primary: 'bg-sky-600 text-white hover:bg-sky-700 focus:ring-sky-500 shadow-md hover:shadow-lg dark:bg-sky-500 dark:hover:bg-sky-600',
+      secondary: 'bg-stone-600 text-white hover:bg-stone-700 focus:ring-stone-500 shadow-md hover:shadow-lg dark:bg-stone-700 dark:hover:bg-stone-600',
+      outline: 'border-2 border-sky-600 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950 focus:ring-sky-500 dark:text-sky-400 dark:border-sky-500',
+      ghost: 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:ring-stone-500',
+      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-md hover:shadow-lg dark:bg-red-600 dark:hover:bg-red-500',
     };
 
     const sizes = {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,8 +28,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){const t=localStorage.getItem('theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',t==='dark'||(!t&&d))})()`,
+          }}
+        />
+      </head>
+      <body className={inter.className}>
+        <div className="fixed top-4 right-4 z-40">
+          <ThemeToggle />
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

@@ -16,13 +16,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         className="w-full"
       >
         {label && (
-          <label className="block text-sm font-medium text-stone-700 mb-1.5">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
             {label}
           </label>
         )}
         <div className="relative">
           {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500">
               {icon}
             </div>
           )}
@@ -30,11 +30,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             className={`
               w-full px-4 py-2.5 ${icon ? 'pl-10' : ''}
-              bg-white border-2 border-stone-200 rounded-lg
-              text-stone-900 placeholder-stone-400
-              focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none
+              bg-white dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-600 rounded-lg
+              text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500
+              focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-900 focus:outline-none
               transition-all duration-200
-              disabled:bg-stone-50 disabled:cursor-not-allowed
+              disabled:bg-stone-50 dark:disabled:bg-stone-800 disabled:cursor-not-allowed
               ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}
               ${className}
             `}

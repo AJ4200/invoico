@@ -4,7 +4,7 @@
 
 @layer base {
   * {
-    @apply border-stone-200;
+    @apply border-stone-200 dark:border-stone-700;
   }
 
   html {
@@ -12,7 +12,7 @@
   }
 
   body {
-    @apply bg-white text-stone-900 antialiased;
+    @apply bg-white text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
     font-feature-settings: 'cv11', 'ss01';
   }
 
@@ -51,7 +51,7 @@
   }
 
   .glass-effect {
-    @apply bg-white/80 backdrop-blur-lg;
+    @apply bg-white/80 backdrop-blur-lg dark:bg-stone-900/80;
   }
 
   .gradient-text {

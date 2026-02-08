@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Trash2, Calendar, Package, DollarSign } from 'lucide-react';
+import { Trash2, Calendar, Package, Banknote, Tag } from 'lucide-react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 
@@ -10,6 +10,7 @@ interface Service {
   date: string;
   quantity: number;
   unitPrice: number;
+  discount: number;
   total: number;
 }
 
@@ -32,10 +33,10 @@ export const ServiceItem: React.FC<ServiceItemProps> = ({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.3 }}
-      className="bg-stone-50 p-6 rounded-xl border-2 border-stone-200 hover:border-sky-300 transition-colors"
+      className="bg-stone-50 dark:bg-stone-800/50 p-6 rounded-xl border-2 border-stone-200 dark:border-stone-700 hover:border-sky-300 dark:hover:border-sky-600 transition-colors"
     >
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-stone-800">
+        <h4 className="text-lg font-semibold text-stone-800 dark:text-stone-100">
           Service #{index + 1}
         </h4>
         <Button
@@ -43,7 +44,7 @@ export const ServiceItem: React.FC<ServiceItemProps> = ({
           size="sm"
           onClick={() => onRemove(index)}
           leftIcon={<Trash2 className="w-4 h-4" />}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
         >
           Remove
         </Button>
@@ -85,7 +86,7 @@ export const ServiceItem: React.FC<ServiceItemProps> = ({
         />
 
         <Input
-          label="Unit Price ($)"
+          label="Unit Price (R)"
           type="number"
           name="unitPrice"
           value={service.unitPrice}
@@ -93,16 +94,33 @@ export const ServiceItem: React.FC<ServiceItemProps> = ({
           placeholder="0.00"
           min="0"
           step="0.01"
-          icon={<DollarSign className="w-4 h-4" />}
+          icon={<Banknote className="w-4 h-4" />}
           required
         />
 
-        <div className="bg-sky-50 p-4 rounded-lg border-2 border-sky-200">
-          <label className="block text-sm font-medium text-stone-700 mb-1.5">
+        <div>
+          <Input
+            label="Discount (R)"
+            type="number"
+            name="discount"
+            value={service.discount}
+            onChange={(e) => onChange(index, e)}
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            icon={<Tag className="w-4 h-4" />}
+          />
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            e.g. free demo: set unit price, then discount same amount
+          </p>
+        </div>
+
+        <div className="md:col-span-2 bg-sky-50 dark:bg-sky-900/30 p-4 rounded-lg border-2 border-sky-200 dark:border-sky-800">
+          <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
             Total Amount
           </label>
-          <p className="text-2xl font-bold text-sky-600">
-            ${service.total.toFixed(2)}
+          <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">
+            R {service.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
       </div>

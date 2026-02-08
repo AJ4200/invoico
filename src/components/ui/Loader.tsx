@@ -41,7 +41,7 @@ export const Loader: React.FC<LoaderProps> = ({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className={`${textSizes[size]} text-stone-600 font-medium`}
+          className={`${textSizes[size]} text-stone-600 dark:text-stone-400 font-medium`}
         >
           {label}
         </motion.p>
@@ -51,7 +51,7 @@ export const Loader: React.FC<LoaderProps> = ({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-white/80 dark:bg-stone-950/90 backdrop-blur-sm flex items-center justify-center z-50">
         {content}
       </div>
     );

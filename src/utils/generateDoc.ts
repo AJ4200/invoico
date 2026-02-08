@@ -1,230 +1,329 @@
 import { jsPDF } from 'jspdf';
 
-export const generatePDF = (
-  clientInfo: { name: string; email: string; address: string; phone: string },
-  invoiceDetails: {
-    invoiceNumber: string;
-    invoiceDate: string;
-    dueDate: string;
-  },
-  services: {
-    description: string;
-    date: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-  }[],
-  tax: number,
-  discount: number,
-  notes: string,
-  subtotal: number,
-  grandTotal: number
-) => {
-  const doc = new jsPDF();
+const formatRands = (amount: number): string =>
+  `R ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const yourInfo = {
+export interface InvoiceData {
+  clientInfo: { name: string; email: string; address: string; phone: string };
+  invoiceDetails: { invoiceNumber: string; invoiceDate: string; dueDate: string };
+  services: { description: string; date: string; quantity: number; unitPrice: number; discount: number; total: number }[];
+  tax: number;
+  notes: string;
+  subtotal: number;
+  grandTotal: number;
+}
+
+function buildInvoicePDF(data: InvoiceData): jsPDF {
+  const { clientInfo, invoiceDetails, services, tax, notes, subtotal, grandTotal } = data;
+  const doc = new jsPDF();
+  const pageWidth = 210;
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+  const amountColRight = margin + contentWidth;
+
+  const company = {
     name: 'JE Productions',
+    tagline: 'Professional Digital Solutions',
     email: 'abeljackson33@gmail.com',
-    address: '1234 Street Name, City, Country',
-    phone: '0626775823',
+    address: '1234 Street Name, City, Province, South Africa',
+    phone: '+27 62 677 5823',
     website: 'www.aj4200.dev',
+    regNo: '2024/123456/07',
+    vatNo: 'VAT No. 4123456789',
   };
 
   const colors = {
-    primary: [14, 165, 233] as [number, number, number],
-    secondary: [120, 113, 108] as [number, number, number],
-    dark: [28, 25, 23] as [number, number, number],
-    light: [245, 245, 244] as [number, number, number],
-    white: [255, 255, 255] as [number, number, number],
+    primary: [15, 23, 42] as [number, number, number],
+    accent: [14, 165, 233] as [number, number, number],
+    secondary: [100, 116, 139] as [number, number, number],
+    dark: [30, 41, 59] as [number, number, number],
+    light: [248, 250, 252] as [number, number, number],
+    border: [226, 232, 240] as [number, number, number],
     success: [34, 197, 94] as [number, number, number],
-    warning: [245, 158, 11] as [number, number, number],
+    discount: [239, 68, 68] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
   };
 
+  let currentY = 20;
+
+  // === Header: Company branding + Invoice badge ===
   doc.setFillColor(...colors.primary);
-  doc.rect(0, 0, 210, 35, 'F');
+  doc.rect(0, 0, pageWidth, 42, 'F');
 
   doc.setTextColor(...colors.white);
-  doc.setFontSize(24);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(yourInfo.name, 15, 22);
+  doc.text(company.name, margin, 18);
 
-  doc.setFillColor(...colors.white);
-  doc.rect(0, 35, 210, 50, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(203, 213, 225);
+  doc.text(company.tagline, margin, 26);
+
+  doc.setFillColor(...colors.accent);
+  doc.rect(pageWidth - margin - 45, 12, 45, 18, 'F');
+  doc.setTextColor(...colors.white);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INVOICE', pageWidth - margin - 22, 22, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`#${invoiceDetails.invoiceNumber}`, pageWidth - margin - 22, 28, { align: 'center' });
+
+  currentY = 50;
+
+  // === Two-column: From / Bill To ===
+  doc.setTextColor(...colors.secondary);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FROM', margin, currentY);
 
   doc.setTextColor(...colors.dark);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('FROM:', 15, 45);
-  doc.setFontSize(9);
-  doc.text(yourInfo.email, 15, 52);
-  doc.text(yourInfo.phone, 15, 57);
-  doc.text(yourInfo.address, 15, 62);
-  doc.text(yourInfo.website, 15, 67);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('INVOICE TO:', 120, 45);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text(clientInfo.name, 120, 52);
+  doc.text(company.name, margin, currentY + 7);
+
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(clientInfo.email, 120, 57);
-  doc.text(clientInfo.phone, 120, 62);
-  doc.text(clientInfo.address, 120, 67);
+  doc.setTextColor(...colors.secondary);
+  doc.text(company.address, margin, currentY + 14);
+  doc.text(company.email, margin, currentY + 20);
+  doc.text(company.phone, margin, currentY + 26);
+  doc.text(company.website, margin, currentY + 32);
 
-  doc.setDrawColor(...colors.light);
-  doc.setLineWidth(0.5);
-  doc.line(15, 72, 195, 72);
-
-  doc.setFillColor(...colors.light);
-  doc.rect(0, 75, 210, 20, 'F');
+  doc.setTextColor(...colors.secondary);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('BILL TO', margin + 95, currentY);
 
   doc.setTextColor(...colors.dark);
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('INVOICE DETAILS', 15, 85);
+  doc.text(clientInfo.name, margin + 95, currentY + 7);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...colors.secondary);
+  const clientAddress = clientInfo.address || '—';
+  const clientEmail = clientInfo.email || '—';
+  const clientPhone = clientInfo.phone || '—';
+  doc.text(clientAddress, margin + 95, currentY + 14);
+  doc.text(clientEmail, margin + 95, currentY + 20);
+  doc.text(clientPhone, margin + 95, currentY + 26);
+
+  currentY += 45;
+
+  // === Invoice meta box ===
+  doc.setFillColor(...colors.light);
+  doc.rect(margin, currentY, contentWidth, 28, 'F');
+  doc.setDrawColor(...colors.border);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, currentY, contentWidth, 28, 'S');
+
+  doc.setTextColor(...colors.dark);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Invoice Date', margin + 8, currentY + 10);
+  doc.text('Due Date', margin + 65, currentY + 10);
+  doc.text('Currency', margin + 122, currentY + 10);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Invoice #: ${invoiceDetails.invoiceNumber}`, 15, 91);
-  doc.text(`Date: ${invoiceDetails.invoiceDate}`, 80, 91);
-  doc.text(`Due Date: ${invoiceDetails.dueDate}`, 140, 91);
+  doc.setTextColor(...colors.secondary);
+  doc.text(invoiceDetails.invoiceDate, margin + 8, currentY + 18);
+  doc.text(invoiceDetails.dueDate, margin + 65, currentY + 18);
+  doc.text('ZAR (South African Rand)', margin + 122, currentY + 18);
 
-  let currentY = 105;
+  currentY += 38;
 
+  // === Line items table header ===
   doc.setFillColor(...colors.primary);
-  doc.rect(15, currentY, 180, 8, 'F');
+  doc.rect(margin, currentY, contentWidth, 10, 'F');
 
   doc.setTextColor(...colors.white);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('DESCRIPTION', 18, currentY + 5.5);
-  doc.text('DATE', 95, currentY + 5.5);
-  doc.text('QTY', 125, currentY + 5.5);
-  doc.text('RATE', 145, currentY + 5.5);
-  doc.text('AMOUNT', 170, currentY + 5.5);
+  doc.text('Description', margin + 4, currentY + 7);
+  doc.text('Date', margin + 82, currentY + 7);
+  doc.text('Qty', margin + 100, currentY + 7);
+  doc.text('Unit Price', margin + 115, currentY + 7);
+  doc.text('Discount', margin + 140, currentY + 7);
+  doc.text('Amount', amountColRight, currentY + 7, { align: 'right' });
 
-  currentY += 10;
+  currentY += 12;
 
+  // === Line items ===
   doc.setTextColor(...colors.dark);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
 
   services.forEach((service, index) => {
-    if (currentY > 260) {
+    if (currentY > 250) {
       doc.addPage();
       currentY = 20;
-
       doc.setFillColor(...colors.primary);
-      doc.rect(15, currentY, 180, 8, 'F');
-
+      doc.rect(margin, currentY, contentWidth, 10, 'F');
       doc.setTextColor(...colors.white);
-      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('DESCRIPTION', 18, currentY + 5.5);
-      doc.text('DATE', 95, currentY + 5.5);
-      doc.text('QTY', 125, currentY + 5.5);
-      doc.text('RATE', 145, currentY + 5.5);
-      doc.text('AMOUNT', 170, currentY + 5.5);
-
-      currentY += 10;
+      doc.text('Description', margin + 4, currentY + 7);
+      doc.text('Date', margin + 82, currentY + 7);
+      doc.text('Qty', margin + 100, currentY + 7);
+      doc.text('Unit Price', margin + 115, currentY + 7);
+      doc.text('Discount', margin + 140, currentY + 7);
+      doc.text('Amount', amountColRight, currentY + 7, { align: 'right' });
+      currentY += 12;
       doc.setTextColor(...colors.dark);
       doc.setFont('helvetica', 'normal');
     }
 
-    if (index % 2 === 0) {
-      doc.setFillColor(250, 250, 250);
-      doc.rect(15, currentY - 2, 180, 10, 'F');
+    if (index % 2 === 1) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, currentY - 2, contentWidth, 12, 'F');
     }
 
-    const descriptionLines = doc.splitTextToSize(service.description, 70);
-    doc.text(descriptionLines, 18, currentY + 3);
-
-    doc.text(service.date, 95, currentY + 3);
-    doc.text(service.quantity.toString(), 125, currentY + 3);
-    doc.text(`$${service.unitPrice.toFixed(2)}`, 145, currentY + 3);
+    const descLines = doc.splitTextToSize(service.description || '—', 70);
+    doc.text(descLines, margin + 4, currentY + 4);
+    doc.text(service.date || '—', margin + 82, currentY + 4);
+    doc.text(service.quantity.toString(), margin + 100, currentY + 4);
+    doc.text(formatRands(service.unitPrice), margin + 115, currentY + 4);
+    const discount = service.discount ?? 0;
+    doc.setTextColor(...(discount > 0 ? colors.discount : colors.dark));
+    doc.text(formatRands(discount), margin + 140, currentY + 4);
+    doc.setTextColor(...colors.dark);
     doc.setFont('helvetica', 'bold');
-    doc.text(`$${service.total.toFixed(2)}`, 170, currentY + 3);
+    doc.text(formatRands(service.total), amountColRight, currentY + 4, { align: 'right' });
     doc.setFont('helvetica', 'normal');
 
-    const lineHeight = Math.max(descriptionLines.length * 5, 10);
+    const lineHeight = Math.max(descLines.length * 5, 10);
     currentY += lineHeight;
   });
 
+  currentY += 12;
+
+  // === Totals ===
+  doc.setDrawColor(...colors.border);
+  doc.setLineWidth(0.5);
+  doc.line(margin + 120, currentY, margin + contentWidth, currentY);
   currentY += 10;
-
-  doc.setDrawColor(...colors.light);
-  doc.line(15, currentY, 195, currentY);
-
-  currentY += 8;
 
   doc.setFontSize(10);
-  doc.text('Subtotal:', 140, currentY);
-  doc.text(`$${subtotal.toFixed(2)}`, 180, currentY, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('Subtotal', margin + 130, currentY);
+  doc.text(formatRands(subtotal), amountColRight, currentY, { align: 'right' });
+  currentY += 8;
 
-  currentY += 7;
-  doc.text('Tax:', 140, currentY);
+  doc.text('Tax (VAT)', margin + 130, currentY);
   doc.setTextColor(...colors.success);
-  doc.text(`$${tax.toFixed(2)}`, 180, currentY, { align: 'right' });
-
-  currentY += 7;
+  doc.text(`+ ${formatRands(tax)}`, amountColRight, currentY, { align: 'right' });
   doc.setTextColor(...colors.dark);
-  doc.text('Discount:', 140, currentY);
-  doc.setTextColor(239, 68, 68);
-  doc.text(`-$${discount.toFixed(2)}`, 180, currentY, { align: 'right' });
-
-  currentY += 10;
+  currentY += 14;
 
   doc.setFillColor(...colors.primary);
-  doc.rect(130, currentY - 5, 65, 12, 'F');
-
+  doc.rect(margin + 100, currentY - 6, contentWidth - 100, 14, 'F');
   doc.setTextColor(...colors.white);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL:', 140, currentY + 2);
-  doc.text(`$${grandTotal.toFixed(2)}`, 185, currentY + 2, { align: 'right' });
+  doc.text('Amount Due', margin + 110, currentY + 2);
+  doc.text(formatRands(grandTotal), amountColRight, currentY + 2, { align: 'right' });
 
-  currentY += 20;
+  currentY += 24;
 
+  // === Notes ===
   if (notes && notes.trim()) {
     doc.setTextColor(...colors.dark);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('NOTES:', 15, currentY);
-
+    doc.text('Notes', margin, currentY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    const noteLines = doc.splitTextToSize(notes, 180);
-    doc.text(noteLines, 15, currentY + 6);
-
-    currentY += 6 + noteLines.length * 5 + 10;
+    doc.setTextColor(...colors.secondary);
+    const noteLines = doc.splitTextToSize(notes.trim(), contentWidth);
+    doc.text(noteLines, margin, currentY + 7);
+    currentY += 7 + noteLines.length * 5 + 12;
   }
 
-  if (currentY > 240) {
+  // === Payment instructions ===
+  if (currentY > 220) {
     doc.addPage();
     currentY = 20;
   }
 
   doc.setFillColor(...colors.light);
-  doc.rect(0, currentY, 210, 35, 'F');
+  doc.rect(margin, currentY, contentWidth, 52, 'F');
+  doc.setDrawColor(...colors.border);
+  doc.rect(margin, currentY, contentWidth, 52, 'S');
+
+  doc.setTextColor(...colors.dark);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Payment Instructions', margin + 8, currentY + 10);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...colors.secondary);
+  doc.text('Bank Transfer (EFT)', margin + 8, currentY + 22);
+  doc.text('Bank: Capitect', margin + 8, currentY + 28);
+  doc.text('Account Number: 1234 0945 29', margin + 8, currentY + 34);
+  doc.text('Branch Code: 250655', margin + 8, currentY + 40);
+  doc.text('Reference: Inv #' + invoiceDetails.invoiceNumber, margin + 8, currentY + 46);
+
+  doc.text('PayShap', margin + 110, currentY + 22);
+  doc.text('Cell: 062 677 5823', margin + 110, currentY + 28);
+
+  currentY += 60;
+
+  // === Terms & conditions ===
+  if (currentY > 250) {
+    doc.addPage();
+    currentY = 20;
+  }
 
   doc.setTextColor(...colors.dark);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('PAYMENT INSTRUCTIONS', 15, currentY + 8);
+  doc.text('Terms & Conditions', margin, currentY);
 
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('Bank Transfer: Capitect - Account 1234094529', 15, currentY + 15);
-  doc.text('PayShap: 0626775823', 15, currentY + 21);
-  doc.text('Thank you for your business!', 15, currentY + 28);
+  doc.setTextColor(...colors.secondary);
+  const terms = [
+    '• Payment is due within the specified due date. Late payments may incur interest.',
+    '• All amounts are in South African Rand (ZAR) unless otherwise stated.',
+    '• Please use the invoice number as your payment reference.',
+    '• VAT is included where applicable. Tax invoice available on request.',
+  ];
+  terms.forEach((line, i) => {
+    doc.text(line, margin, currentY + 8 + i * 5);
+  });
+
+  currentY += 8 + terms.length * 5 + 12;
+
+  // === Footer ===
+  doc.setDrawColor(...colors.border);
+  doc.line(margin, 275, pageWidth - margin, 275);
 
   doc.setFontSize(7);
   doc.setTextColor(...colors.secondary);
-  doc.text('Invoice generated by Invoico | Built by @aj4200', 105, 290, {
+  doc.text(
+    `${company.name} | ${company.regNo} | ${company.vatNo} | ${company.website}`,
+    pageWidth / 2,
+    282,
+    { align: 'center' }
+  );
+  doc.text('Invoice generated by Invoico. This is a computer-generated document.', pageWidth / 2, 288, {
     align: 'center',
   });
 
-  doc.save(`${clientInfo.name.replace(/\s+/g, '-')}-invoice-${invoiceDetails.invoiceNumber}.pdf`);
+  return doc;
+}
+
+export const generatePDF = (data: InvoiceData): void => {
+  const doc = buildInvoicePDF(data);
+  doc.save(`${data.clientInfo.name.replace(/\s+/g, '-')}-invoice-${data.invoiceDetails.invoiceNumber}.pdf`);
+};
+
+/** Returns the PDF as base64 string for email attachment */
+export const generatePDFAsBase64 = (data: InvoiceData): string => {
+  const doc = buildInvoicePDF(data);
+  const dataUri = doc.output('datauristring');
+  return dataUri.split(',')[1] ?? '';
 };

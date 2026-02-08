@@ -28,7 +28,7 @@ export default function Home() {
       </AnimatePresence>
 
       {!showSplash && (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-50 via-white to-sky-50">
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-50 via-white to-sky-50 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950">
           <main className="flex-grow">
             <InvoiceForm />
           </main>
