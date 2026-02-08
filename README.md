@@ -2,21 +2,20 @@
 
 ## Modern Invoicing, Made Simple
 
-**Invoico** is a sleek, modern, and efficient web application for creating, managing, and tracking invoices. Built with simplicity and performance in mind, it is designed for freelancers, small businesses, and service providers who want a clean, no‑nonsense billing workflow — from invoice creation to client delivery.
+**Invoico** is a sleek, modern, and efficient web application for creating professional invoices. Built with simplicity and performance in mind, it is designed for freelancers, small businesses, and service providers who want a clean billing workflow — from invoice creation to client delivery via PDF or email.
 
 ---
 
 ## 🚀 Key Features
 
-- 📄 Create, view, and manage professional invoices with ease  
-- 🧑‍💼 Client management (add, edit, and reuse client details)  
-- 💰 Track payments and invoice statuses (paid / unpaid)  
-- 📦 Support for multiple line items per invoice  
-- 🖨️ Export invoices as polished PDF documents  
-- 🗃️ Optional self‑hosted deployment  
-- 🔐 Built with scalability, security, and performance in mind
-
-Whether you’re a solo freelancer or a growing business, Invoico provides the essential tools you need — without unnecessary complexity.
+- 📄 **Professional PDF invoices** — Company branding, line items, payment instructions, and terms & conditions
+- 💰 **South African Rand (ZAR)** — Full currency support with proper formatting (e.g. R 1 234,56)
+- 📧 **Email invoices** — Send invoices directly to clients with PDF attachment via Resend
+- 🌙 **Dark mode** — Toggle with system preference detection and localStorage persistence
+- 📦 **Services with per-line discount** — Add line items; optionally discount per service (e.g. free demo: set amount, then discount same)
+- 📋 **Collapsible services** — Expand/collapse service cards; arrow rotates; new services auto-expand
+- 🔢 **Auto-generated invoice numbers** — Format: `INV-YYYYMMDD-CLIENT` (e.g. INV-20250208-JD for John Doe)
+- 🎨 **Polished UI** — Header with GitHub credit, theme toggle, animated splash screen
 
 ---
 
@@ -30,20 +29,34 @@ Whether you’re a solo freelancer or a growing business, Invoico provides the e
 
 | Area | Technology |
 |------|------------|
-| Framework | Next.js (App Router) |
+| Framework | Next.js 14 (App Router) |
 | Language | TypeScript |
-| UI & Styling | Tailwind CSS |
-| State / Logic | React Hooks |
-| Database | Prisma (SQLite / PostgreSQL) |
-| API Layer | Next.js Route Handlers |
-| PDF Generation | @react-pdf/renderer (or equivalent) |
-| Tooling | ESLint, Prettier |
+| UI & Styling | Tailwind CSS, DaisyUI |
+| Animations | Framer Motion |
+| PDF Generation | jsPDF |
+| Email | Resend |
+| Icons | Lucide React |
 
 **Project Structure**
 
-- `/src` — Main application source (app routes, components, logic)
-- `/prisma` — Database schema and migrations (if present)
-- Root config files — `next.config.mjs`, `tailwind.config.ts`, `tsconfig.json`, etc.
+```text
+src/
+├── app/              # Next.js App Router
+│   ├── api/          # API routes (e.g. send-invoice)
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
+├── components/       # React components
+│   ├── Header.tsx     # App header with GitHub credit & theme toggle
+│   ├── InvoiceForm.tsx
+│   ├── ServiceItem.tsx
+│   ├── SplashScreen.tsx
+│   ├── Footer.tsx
+│   ├── ThemeToggle.tsx
+│   └── ui/           # Reusable UI components
+└── utils/
+    └── generateDoc.ts # PDF generation (jsPDF)
+```
 
 ---
 
@@ -52,13 +65,11 @@ Whether you’re a solo freelancer or a growing business, Invoico provides the e
 ### 📌 Clone the Repository
 
 ```bash
-git clone https://github.com/AJ4200/invoico.git
+git clone https://github.com/aj4200/invoico.git
 cd invoico
 ```
 
 ### 📦 Install Dependencies
-
-All dependencies are managed from the project root.
 
 ```bash
 npm install
@@ -66,13 +77,19 @@ npm install
 
 ### 🔐 Environment Configuration
 
-Create a local environment file if required:
+Create a local environment file for email functionality:
 
 ```bash
 cp .env.example .env
 ```
 
-Update environment variables such as database connection strings or API keys as needed.
+Configure Resend for sending invoices:
+
+| Variable | Description |
+|----------|-------------|
+| `RESEND_API_KEY` | Resend API key (get from [resend.com](https://resend.com)) |
+| `RESEND_FROM_EMAIL` | (Optional) Verified sender address |
+| `COMPANY_NAME` | (Optional) Company name for email subject |
 
 ### ▶️ Run the App Locally
 
@@ -90,61 +107,53 @@ http://localhost:3000
 
 ## 🧾 Application Usage
 
-1. **Create Clients** — Store client details such as name, email, and billing address.
-2. **Generate Invoices** — Add line items, pricing, and applicable taxes.
-3. **Export or Send** — Download invoices as PDFs or share them digitally.
-4. **Track Status** — Monitor paid and unpaid invoices in real time.
-
----
-
-## 🔐 Environment Variables
-
-The application relies on the following environment variables:
-
-| Variable | Description |
-|---------|-------------|
-| DATABASE_URL | Database connection string |
-| JWT_SECRET | Authentication secret |
-| APP_URL | Application base URL |
-| SMTP_HOST | Email server host |
-| SMTP_USER | Email username |
-| SMTP_PASS | Email password |
-
-Ensure sensitive values are kept secure, especially in production environments.
-
----
-
-## 🗄️ Database & Migrations
-
-If Prisma is used in this project, database migrations and client generation can be run from the root:
-
-```bash
-npx prisma migrate dev
-npx prisma generate
-```bash
-npx prisma migrate dev --name init
-npx prisma generate
-```
-
----
-
-## 📡 API Architecture
-
-Invoico uses **Next.js Route Handlers** for server-side logic and APIs.
-
-API routes are typically located under:
-
-```text
-/src/app/api
-```
-
-Endpoints are structured by feature (e.g., invoices, clients) and follow REST-like conventions.
+1. **Client information** — Enter client name, email, address, and phone.
+2. **Invoice details** — Invoice number is auto-generated from client name and date (editable). Set invoice and due dates.
+3. **Services** — Add line items with description, date, quantity, unit price, and optional per-line discount (e.g. free demo).
+4. **Tax** — Add tax (VAT) if applicable.
+5. **Download or email** — Export as PDF or send directly to the client’s email.
 
 ---
 
 ## 📄 PDF Export
 
-Invoico includes built‑in PDF generation, allowing invoices to be exported as clean, professional documents suitable for client delivery and record‑keeping.
+Invoico generates professional PDF invoices with:
+
+- Company branding and invoice badge
+- Bill-to and from sections
+- Line items table (Description, Date, Qty, Unit Price, Discount, Amount)
+- Subtotal, tax, and amount due
+- Payment instructions (EFT, PayShap)
+- Terms & conditions
+- Footer with registration and VAT details
+
+---
+
+## 📧 Email Invoices
+
+1. Ensure the client email is filled in.
+2. Click **Email to Client**.
+3. The invoice is generated, attached as PDF, and sent via Resend.
+
+**Note:** For production, verify your domain in the Resend dashboard. The default sender (`onboarding@resend.dev`) is for testing only.
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `RESEND_API_KEY` | Resend API key (required for email) |
+| `RESEND_FROM_EMAIL` | Custom sender (optional) |
+| `COMPANY_NAME` | Company name for emails (optional) |
+
+---
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/send-invoice` | POST | Sends invoice email with PDF attachment |
 
 ---
 
@@ -152,9 +161,9 @@ Invoico includes built‑in PDF generation, allowing invoices to be exported as 
 
 Contributions are welcome and appreciated.
 
-1. Fork the repository  
-2. Create a new feature branch  
-3. Commit your changes with clear messages  
+1. Fork the repository
+2. Create a new feature branch
+3. Commit your changes with clear messages
 4. Open a pull request for review
 
 ---
@@ -173,5 +182,4 @@ This project is licensed under the **MIT License**, allowing you to use, modify,
 
 ## 🙌 Acknowledgements
 
-Thank you to all contributors and users who help improve **Invoico**. Your support and feedback make this project better 💙
-
+Built with passion and precision by [@aj4200](https://github.com/aj4200) 💙

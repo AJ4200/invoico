@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -45,18 +45,34 @@ export default function InvoiceForm() {
     phone: '',
   });
 
-  const [invoiceDetails, setInvoiceDetails] = useState({
-    invoiceNumber: '',
-    invoiceDate: '',
-    dueDate: '',
+  const [invoiceDetails, setInvoiceDetails] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return { invoiceNumber: 'INV-', invoiceDate: today, dueDate: today };
   });
 
   const [services, setServices] = useState<Service[]>([
     { description: '', date: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 },
   ]);
 
+  const [expandedServiceIndex, setExpandedServiceIndex] = useState<number | null>(0);
+
   const [tax, setTax] = useState(0);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    const date = invoiceDetails.invoiceDate || new Date().toISOString().slice(0, 10);
+    const datePart = date.replace(/-/g, '');
+    const name = clientInfo.name.trim();
+    const initials = name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3);
+    const invoiceNumber = initials ? `INV-${datePart}-${initials}` : `INV-${datePart}`;
+    setInvoiceDetails((prev) => ({ ...prev, invoiceNumber }));
+  }, [clientInfo.name, invoiceDetails.invoiceDate]);
 
   const handleInputChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
@@ -95,15 +111,26 @@ export default function InvoiceForm() {
   };
 
   const addService = () => {
+    const newIndex = services.length;
     setServices([
       ...services,
       { description: '', date: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 },
     ]);
+    setExpandedServiceIndex(newIndex);
   };
 
   const removeService = (index: number) => {
     const newServices = services.filter((_, i) => i !== index);
     setServices(newServices);
+    setExpandedServiceIndex((prev) => {
+      if (prev === null || prev === index) return newServices.length > 0 ? 0 : null;
+      if (prev > index) return prev - 1;
+      return prev;
+    });
+  };
+
+  const toggleServiceExpand = (index: number) => {
+    setExpandedServiceIndex((prev) => (prev === index ? null : index));
   };
 
   const calculateSubtotal = () => {
@@ -284,15 +311,20 @@ export default function InvoiceForm() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label="Invoice Number"
-                  name="invoiceNumber"
-                  value={invoiceDetails.invoiceNumber}
-                  onChange={handleInvoiceChange}
-                  placeholder="INV-001"
-                  icon={<FileCheck className="w-4 h-4" />}
-                  required
-                />
+                <div>
+                  <Input
+                    label="Invoice Number"
+                    name="invoiceNumber"
+                    value={invoiceDetails.invoiceNumber}
+                    onChange={handleInvoiceChange}
+                    placeholder="INV-001"
+                    icon={<FileCheck className="w-4 h-4" />}
+                    required
+                  />
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                    Auto-generated from client name & date (editable)
+                  </p>
+                </div>
 
                 <Input
                   label="Invoice Date"
@@ -341,6 +373,8 @@ export default function InvoiceForm() {
                       key={index}
                       service={service}
                       index={index}
+                      isExpanded={expandedServiceIndex === index}
+                      onToggle={() => toggleServiceExpand(index)}
                       onChange={handleServiceChange}
                       onRemove={removeService}
                     />
