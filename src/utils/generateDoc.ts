@@ -25,11 +25,11 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
     name: 'JE Productions',
     tagline: 'Professional Digital Solutions',
     email: 'abeljackson33@gmail.com',
-    address: '1234 Street Name, City, Province, South Africa',
+    address: 'Modimolle, Limpopo, South Africa',
     phone: '+27 62 677 5823',
     website: 'www.aj4200.dev',
-    regNo: '2024/123456/07',
-    vatNo: 'VAT No. 4123456789',
+    regNo: '---',
+    vatNo: '---',
   };
 
   const colors = {
@@ -261,9 +261,9 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...colors.secondary);
   doc.text('Bank Transfer (EFT)', margin + 8, currentY + 22);
-  doc.text('Bank: Capitect', margin + 8, currentY + 28);
-  doc.text('Account Number: 1234 0945 29', margin + 8, currentY + 34);
-  doc.text('Branch Code: 250655', margin + 8, currentY + 40);
+  doc.text('Bank: Capitec', margin + 8, currentY + 28);
+  doc.text('Account Number: 1534094529', margin + 8, currentY + 34);
+  doc.text('Branch Code: 470010', margin + 8, currentY + 40);
   doc.text('Reference: Inv #' + invoiceDetails.invoiceNumber, margin + 8, currentY + 46);
 
   doc.text('PayShap', margin + 110, currentY + 22);
