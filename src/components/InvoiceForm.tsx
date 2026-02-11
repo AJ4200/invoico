@@ -14,6 +14,11 @@ import {
   Banknote,
   FileCheck,
   Send,
+  Building2,
+  Globe,
+  Hash,
+  Landmark,
+  CreditCard,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
@@ -43,6 +48,24 @@ export default function InvoiceForm() {
     email: '',
     address: '',
     phone: '',
+  });
+
+  const [companyInfo, setCompanyInfo] = useState({
+    name: 'JE Productions',
+    tagline: 'Professional Digital Solutions',
+    email: 'abeljackson33@gmail.com',
+    address: 'Modimolle, Limpopo, South Africa',
+    phone: '+27 62 677 5823',
+    website: 'www.aj4200.dev',
+    regNo: '---',
+    vatNo: '---',
+  });
+
+  const [bankingDetails, setBankingDetails] = useState({
+    bankName: 'Capitec',
+    accountNumber: '1534094529',
+    branchCode: '470010',
+    payShapCell: '062 677 5823',
   });
 
   const [invoiceDetails, setInvoiceDetails] = useState(() => {
@@ -86,6 +109,22 @@ export default function InvoiceForm() {
     const { name, value } = e.target;
     setInvoiceDetails((prevDetails) => ({
       ...prevDetails,
+      [name]: value,
+    }));
+  };
+
+  const handleCompanyInfoChange = (e: { target: { name: string; value: string } }) => {
+    const { name, value } = e.target;
+    setCompanyInfo((prevInfo) => ({
+      ...prevInfo,
+      [name]: value,
+    }));
+  };
+
+  const handleBankingDetailsChange = (e: { target: { name: string; value: string } }) => {
+    const { name, value } = e.target;
+    setBankingDetails((prevInfo) => ({
+      ...prevInfo,
       [name]: value,
     }));
   };
@@ -158,6 +197,8 @@ export default function InvoiceForm() {
     generatePDF({
       clientInfo,
       invoiceDetails,
+      companyInfo,
+      bankingDetails,
       services,
       tax,
       notes,
@@ -187,6 +228,8 @@ export default function InvoiceForm() {
       const pdfBase64 = generatePDFAsBase64({
         clientInfo,
         invoiceDetails,
+        companyInfo,
+        bankingDetails,
         services,
         tax,
         notes,
@@ -203,6 +246,7 @@ export default function InvoiceForm() {
         body: JSON.stringify({
           to: clientInfo.email.trim(),
           clientName: clientInfo.name || 'Valued Client',
+          companyName: companyInfo.name || 'Your Company',
           invoiceNumber: invoiceDetails.invoiceNumber,
           grandTotal: calculateGrandTotal(),
           pdfBase64,
@@ -245,6 +289,144 @@ export default function InvoiceForm() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/50 rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800 dark:text-stone-100">
+                  Your Company Details
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Company Name"
+                  name="name"
+                  value={companyInfo.name}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="Your Company Name"
+                  icon={<Building2 className="w-4 h-4" />}
+                  required
+                />
+
+                <Input
+                  label="Tagline"
+                  name="tagline"
+                  value={companyInfo.tagline}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="Professional Services"
+                  icon={<FileText className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Company Email"
+                  type="email"
+                  name="email"
+                  value={companyInfo.email}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="billing@yourcompany.com"
+                  icon={<Mail className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Company Phone"
+                  type="tel"
+                  name="phone"
+                  value={companyInfo.phone}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="+27 12 345 6789"
+                  icon={<Phone className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Company Address"
+                  name="address"
+                  value={companyInfo.address}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="123 Main St, City"
+                  icon={<MapPin className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Website"
+                  name="website"
+                  value={companyInfo.website}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="www.yourcompany.com"
+                  icon={<Globe className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Registration Number"
+                  name="regNo"
+                  value={companyInfo.regNo}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="Company registration number"
+                  icon={<Hash className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="VAT Number"
+                  name="vatNo"
+                  value={companyInfo.vatNo}
+                  onChange={handleCompanyInfoChange}
+                  placeholder="VAT number"
+                  icon={<Hash className="w-4 h-4" />}
+                />
+              </div>
+            </Card>
+
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/50 rounded-lg flex items-center justify-center">
+                  <Landmark className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800 dark:text-stone-100">
+                  Banking Details
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Bank Name"
+                  name="bankName"
+                  value={bankingDetails.bankName}
+                  onChange={handleBankingDetailsChange}
+                  placeholder="Your bank"
+                  icon={<Landmark className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Account Number"
+                  name="accountNumber"
+                  value={bankingDetails.accountNumber}
+                  onChange={handleBankingDetailsChange}
+                  placeholder="Account number"
+                  icon={<CreditCard className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="Branch Code"
+                  name="branchCode"
+                  value={bankingDetails.branchCode}
+                  onChange={handleBankingDetailsChange}
+                  placeholder="Branch code"
+                  icon={<Hash className="w-4 h-4" />}
+                />
+
+                <Input
+                  label="PayShap Cell"
+                  type="tel"
+                  name="payShapCell"
+                  value={bankingDetails.payShapCell}
+                  onChange={handleBankingDetailsChange}
+                  placeholder="PayShap number"
+                  icon={<Phone className="w-4 h-4" />}
+                />
+              </div>
+            </Card>
+
             <Card variant="elevated" className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/50 rounded-lg flex items-center justify-center">
