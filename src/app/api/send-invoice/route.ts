@@ -12,12 +12,14 @@ export async function POST(request: Request) {
       invoiceNumber,
       grandTotal,
       pdfBase64,
+      companyName,
     }: {
       to: string;
       clientName: string;
       invoiceNumber: string;
       grandTotal: number;
       pdfBase64: string;
+      companyName?: string;
     } = body;
 
     if (!to || !pdfBase64) {
@@ -43,17 +45,17 @@ export async function POST(request: Request) {
     }
 
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'Invoico <onboarding@resend.dev>';
-    const companyName = process.env.COMPANY_NAME || 'JE Productions';
+    const senderCompanyName = companyName?.trim() || process.env.COMPANY_NAME || 'JE Productions';
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: [to],
-      subject: `Invoice #${invoiceNumber} from ${companyName}`,
+      subject: `Invoice #${invoiceNumber} from ${senderCompanyName}`,
       html: `
         <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #0f172a;">Invoice #${invoiceNumber}</h2>
           <p>Dear ${clientName || 'Valued Client'},</p>
-          <p>Please find attached your invoice #${invoiceNumber} from ${companyName}.</p>
+          <p>Please find attached your invoice #${invoiceNumber} from ${senderCompanyName}.</p>
           <p style="font-size: 18px; font-weight: 600; color: #0ea5e9;">
             Amount due: R ${grandTotal?.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'}
           </p>

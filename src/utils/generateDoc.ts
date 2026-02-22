@@ -6,6 +6,22 @@ const formatRands = (amount: number): string =>
 export interface InvoiceData {
   clientInfo: { name: string; email: string; address: string; phone: string };
   invoiceDetails: { invoiceNumber: string; invoiceDate: string; dueDate: string };
+  companyInfo: {
+    name: string;
+    tagline: string;
+    email: string;
+    address: string;
+    phone: string;
+    website: string;
+    regNo: string;
+    vatNo: string;
+  };
+  bankingDetails: {
+    bankName: string;
+    accountNumber: string;
+    branchCode: string;
+    payShapCell: string;
+  };
   services: { description: string; date: string; quantity: number; unitPrice: number; discount: number; total: number }[];
   tax: number;
   notes: string;
@@ -14,23 +30,24 @@ export interface InvoiceData {
 }
 
 function buildInvoicePDF(data: InvoiceData): jsPDF {
-  const { clientInfo, invoiceDetails, services, tax, notes, subtotal, grandTotal } = data;
+  const {
+    clientInfo,
+    invoiceDetails,
+    companyInfo,
+    bankingDetails,
+    services,
+    tax,
+    notes,
+    subtotal,
+    grandTotal,
+  } = data;
   const doc = new jsPDF();
   const pageWidth = 210;
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
   const amountColRight = margin + contentWidth;
 
-  const company = {
-    name: 'JE Productions',
-    tagline: 'Professional Digital Solutions',
-    email: 'abeljackson33@gmail.com',
-    address: 'Modimolle, Limpopo, South Africa',
-    phone: '+27 62 677 5823',
-    website: 'www.aj4200.dev',
-    regNo: '---',
-    vatNo: '---',
-  };
+  const company = companyInfo;
 
   const colors = {
     primary: [15, 23, 42] as [number, number, number],
@@ -261,13 +278,13 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...colors.secondary);
   doc.text('Bank Transfer (EFT)', margin + 8, currentY + 22);
-  doc.text('Bank: Capitec', margin + 8, currentY + 28);
-  doc.text('Account Number: 1534094529', margin + 8, currentY + 34);
-  doc.text('Branch Code: 470010', margin + 8, currentY + 40);
+  doc.text(`Bank: ${bankingDetails.bankName || '—'}`, margin + 8, currentY + 28);
+  doc.text(`Account Number: ${bankingDetails.accountNumber || '—'}`, margin + 8, currentY + 34);
+  doc.text(`Branch Code: ${bankingDetails.branchCode || '—'}`, margin + 8, currentY + 40);
   doc.text('Reference: Inv #' + invoiceDetails.invoiceNumber, margin + 8, currentY + 46);
 
   doc.text('PayShap', margin + 110, currentY + 22);
-  doc.text('Cell: 062 677 5823', margin + 110, currentY + 28);
+  doc.text(`Cell: ${bankingDetails.payShapCell || '—'}`, margin + 110, currentY + 28);
 
   currentY += 60;
 
