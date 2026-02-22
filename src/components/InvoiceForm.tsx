@@ -14,6 +14,12 @@ import {
   Banknote,
   FileCheck,
   Send,
+  Repeat,
+  Bell,
+  CalendarClock,
+  PauseCircle,
+  PlayCircle,
+  Trash2,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
@@ -30,6 +36,168 @@ interface Service {
   discount: number;
   total: number;
 }
+
+type RecurrenceFrequency = 'none' | 'monthly' | 'yearly' | 'custom';
+type IntervalUnit = 'days' | 'weeks' | 'months' | 'years';
+
+interface RecurrenceSettings {
+  frequency: RecurrenceFrequency;
+  intervalCount: number;
+  intervalUnit: IntervalUnit;
+  startDate: string;
+  notifyEnabled: boolean;
+  notifyDaysBefore: number;
+}
+
+interface ScheduleTemplate {
+  services: Service[];
+  tax: number;
+  notes: string;
+}
+
+interface ScheduleNotification {
+  enabled: boolean;
+  daysBefore: number;
+  lastNotifiedFor?: string;
+}
+
+interface RecurringSchedule {
+  id: string;
+  client: {
+    name: string;
+    email: string;
+    address: string;
+    phone: string;
+  };
+  template: ScheduleTemplate;
+  intervalCount: number;
+  intervalUnit: IntervalUnit;
+  startDate: string;
+  nextRun: string;
+  status: 'active' | 'paused';
+  createdAt: string;
+  lastGenerated?: string;
+  dueInDays: number;
+  notify: ScheduleNotification;
+}
+
+interface GeneratedInvoice {
+  id: string;
+  scheduleId: string;
+  clientName: string;
+  invoiceDate: string;
+  dueDate: string;
+  invoiceNumber: string;
+  subtotal: number;
+  total: number;
+  createdAt: string;
+}
+
+const RECURRENCE_STORAGE_KEY = 'invoico.recurringSchedules';
+const GENERATED_STORAGE_KEY = 'invoico.generatedInvoices';
+
+const parseISODate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
+
+const todayISO = () => formatISODate(new Date());
+
+const addDays = (dateISO: string, days: number) => {
+  const date = parseISODate(dateISO);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatISODate(date);
+};
+
+const addInterval = (dateISO: string, count: number, unit: IntervalUnit) => {
+  const date = parseISODate(dateISO);
+
+  if (unit === 'days') {
+    date.setUTCDate(date.getUTCDate() + count);
+    return formatISODate(date);
+  }
+
+  if (unit === 'weeks') {
+    date.setUTCDate(date.getUTCDate() + count * 7);
+    return formatISODate(date);
+  }
+
+  if (unit === 'months') {
+    const day = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + count);
+    const daysInTargetMonth = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
+    ).getUTCDate();
+    date.setUTCDate(Math.min(day, daysInTargetMonth));
+    return formatISODate(date);
+  }
+
+  const day = date.getUTCDate();
+  const month = date.getUTCMonth();
+  date.setUTCDate(1);
+  date.setUTCFullYear(date.getUTCFullYear() + count);
+  date.setUTCMonth(month);
+  const daysInTargetMonth = new Date(
+    Date.UTC(date.getUTCFullYear(), month + 1, 0)
+  ).getUTCDate();
+  date.setUTCDate(Math.min(day, daysInTargetMonth));
+  return formatISODate(date);
+};
+
+const diffInDays = (fromISO: string, toISO: string) => {
+  const from = parseISODate(fromISO);
+  const to = parseISODate(toISO);
+  return Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const computeNextRun = (
+  startDate: string,
+  intervalCount: number,
+  intervalUnit: IntervalUnit,
+  currentDate: string
+) => {
+  if (!startDate) return currentDate;
+  let next = startDate;
+  while (next < currentDate) {
+    next = addInterval(next, intervalCount, intervalUnit);
+  }
+  return next;
+};
+
+const normalizeServices = (items: Service[]) =>
+  items.map((service) => {
+    const lineTotal = service.quantity * service.unitPrice;
+    return {
+      ...service,
+      total: Math.max(0, lineTotal - service.discount),
+    };
+  });
+
+const calculateSubtotalFromServices = (items: Service[]) =>
+  items.reduce((acc, service) => acc + service.total, 0);
+
+const makeInvoiceNumber = (clientName: string, dateISO: string) => {
+  const datePart = dateISO.replace(/-/g, '');
+  const initials = clientName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
+  return initials ? `INV-${datePart}-${initials}` : `INV-${datePart}`;
+};
+
+const createId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
 
 export default function InvoiceForm() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -59,6 +227,26 @@ export default function InvoiceForm() {
   const [tax, setTax] = useState(0);
   const [notes, setNotes] = useState('');
 
+  const [recurrence, setRecurrence] = useState<RecurrenceSettings>(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      frequency: 'none',
+      intervalCount: 1,
+      intervalUnit: 'months',
+      startDate: today,
+      notifyEnabled: false,
+      notifyDaysBefore: 3,
+    };
+  });
+
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
+  const [generatedInvoices, setGeneratedInvoices] = useState<GeneratedInvoice[]>([]);
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<
+    'unsupported' | NotificationPermission
+  >('default');
+
   useEffect(() => {
     const date = invoiceDetails.invoiceDate || new Date().toISOString().slice(0, 10);
     const datePart = date.replace(/-/g, '');
@@ -73,6 +261,129 @@ export default function InvoiceForm() {
     const invoiceNumber = initials ? `INV-${datePart}-${initials}` : `INV-${datePart}`;
     setInvoiceDetails((prev) => ({ ...prev, invoiceNumber }));
   }, [clientInfo.name, invoiceDetails.invoiceDate]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedSchedules = localStorage.getItem(RECURRENCE_STORAGE_KEY);
+      if (storedSchedules) {
+        setRecurringSchedules(JSON.parse(storedSchedules));
+      }
+      const storedGenerated = localStorage.getItem(GENERATED_STORAGE_KEY);
+      if (storedGenerated) {
+        setGeneratedInvoices(JSON.parse(storedGenerated));
+      }
+    } catch {
+      setRecurringSchedules([]);
+      setGeneratedInvoices([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(RECURRENCE_STORAGE_KEY, JSON.stringify(recurringSchedules));
+  }, [recurringSchedules]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(GENERATED_STORAGE_KEY, JSON.stringify(generatedInvoices));
+  }, [generatedInvoices]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) {
+      setNotificationStatus('unsupported');
+      return;
+    }
+    setNotificationStatus(Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const runScheduleCheck = () => {
+      const today = todayISO();
+      const generated: GeneratedInvoice[] = [];
+      let notifiedSchedules: Record<string, string> = {};
+
+      setRecurringSchedules((prev) => {
+        let changed = false;
+        const updated = prev.map((schedule) => {
+          if (schedule.status !== 'active') return schedule;
+
+          let nextRun = schedule.nextRun;
+          let lastGenerated = schedule.lastGenerated;
+          let notify = schedule.notify;
+
+          while (nextRun <= today) {
+            const invoiceDate = nextRun;
+            const dueDate = addDays(invoiceDate, schedule.dueInDays);
+            const subtotal = calculateSubtotalFromServices(schedule.template.services);
+            const total = subtotal + schedule.template.tax;
+            const invoiceNumber = makeInvoiceNumber(schedule.client.name, invoiceDate);
+
+            generated.push({
+              id: createId(),
+              scheduleId: schedule.id,
+              clientName: schedule.client.name,
+              invoiceDate,
+              dueDate,
+              invoiceNumber,
+              subtotal,
+              total,
+              createdAt: todayISO(),
+            });
+
+            lastGenerated = invoiceDate;
+            nextRun = addInterval(nextRun, schedule.intervalCount, schedule.intervalUnit);
+            changed = true;
+          }
+
+          const daysUntil = diffInDays(today, nextRun);
+          if (
+            notify.enabled &&
+            daysUntil <= notify.daysBefore &&
+            notify.lastNotifiedFor !== nextRun
+          ) {
+            if (notificationStatus === 'granted') {
+              new Notification('Upcoming invoice generation', {
+                body: `${schedule.client.name} is scheduled for ${nextRun}.`,
+              });
+            }
+            notify = { ...notify, lastNotifiedFor: nextRun };
+            notifiedSchedules[schedule.id] = nextRun;
+            changed = true;
+          }
+
+          if (changed) {
+            return {
+              ...schedule,
+              nextRun,
+              lastGenerated,
+              notify,
+            };
+          }
+
+          return schedule;
+        });
+
+        return changed ? updated : prev;
+      });
+
+      if (generated.length > 0) {
+        setGeneratedInvoices((prev) => [...generated, ...prev].slice(0, 50));
+      }
+
+      if (Object.keys(notifiedSchedules).length > 0) {
+        setScheduleMessage('Upcoming invoices have been queued.');
+        setTimeout(() => setScheduleMessage(null), 3000);
+      }
+    };
+
+    runScheduleCheck();
+    const interval = setInterval(runScheduleCheck, 60000);
+    return () => clearInterval(interval);
+  }, [notificationStatus]);
 
   const handleInputChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
@@ -141,6 +452,199 @@ export default function InvoiceForm() {
     const subtotal = calculateSubtotal();
     return subtotal + tax;
   };
+
+  const recurrenceInterval = (() => {
+    if (recurrence.frequency === 'monthly') {
+      return { count: 1, unit: 'months' as IntervalUnit };
+    }
+    if (recurrence.frequency === 'yearly') {
+      return { count: 1, unit: 'years' as IntervalUnit };
+    }
+    if (recurrence.frequency === 'custom') {
+      return {
+        count: Math.max(1, recurrence.intervalCount),
+        unit: recurrence.intervalUnit,
+      };
+    }
+    return null;
+  })();
+
+  const nextRecurringDate =
+    recurrenceInterval && recurrence.startDate
+      ? computeNextRun(
+          recurrence.startDate,
+          recurrenceInterval.count,
+          recurrenceInterval.unit,
+          todayISO()
+        )
+      : null;
+
+  const requestNotificationPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotificationStatus('unsupported');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationStatus(permission);
+  };
+
+  const applyScheduleToForm = (schedule: RecurringSchedule, invoiceDate: string) => {
+    const dueDate = addDays(invoiceDate, schedule.dueInDays);
+    const normalizedServices = normalizeServices(schedule.template.services);
+    setClientInfo({ ...schedule.client });
+    setServices(normalizedServices);
+    setTax(schedule.template.tax);
+    setNotes(schedule.template.notes);
+    setInvoiceDetails((prev) => ({
+      ...prev,
+      invoiceDate,
+      dueDate,
+      invoiceNumber: makeInvoiceNumber(schedule.client.name, invoiceDate),
+    }));
+  };
+
+  const handleCreateSchedule = () => {
+    setScheduleError(null);
+    setScheduleMessage(null);
+
+    if (recurrence.frequency === 'none' || !recurrenceInterval) {
+      setScheduleError('Select a recurrence option before saving a schedule.');
+      return;
+    }
+
+    if (!clientInfo.name.trim()) {
+      setScheduleError('Add a client name to attach this schedule.');
+      return;
+    }
+
+    if (!recurrence.startDate) {
+      setScheduleError('Choose a start date for this schedule.');
+      return;
+    }
+
+    const normalizedServices = normalizeServices(services);
+    const dueInDays = Math.max(
+      0,
+      diffInDays(invoiceDetails.invoiceDate, invoiceDetails.dueDate)
+    );
+    const nextRun = computeNextRun(
+      recurrence.startDate,
+      recurrenceInterval.count,
+      recurrenceInterval.unit,
+      todayISO()
+    );
+
+    const schedule: RecurringSchedule = {
+      id: createId(),
+      client: { ...clientInfo },
+      template: {
+        services: normalizedServices,
+        tax,
+        notes,
+      },
+      intervalCount: recurrenceInterval.count,
+      intervalUnit: recurrenceInterval.unit,
+      startDate: recurrence.startDate,
+      nextRun,
+      status: 'active',
+      createdAt: todayISO(),
+      lastGenerated: undefined,
+      dueInDays,
+      notify: {
+        enabled: recurrence.notifyEnabled,
+        daysBefore: Math.max(0, recurrence.notifyDaysBefore),
+      },
+    };
+
+    setRecurringSchedules((prev) => [schedule, ...prev]);
+    setScheduleMessage(`Recurring schedule saved. Next invoice: ${nextRun}.`);
+  };
+
+  const handleRecurrenceFrequencyChange = (value: RecurrenceFrequency) => {
+    if (value === 'monthly') {
+      setRecurrence((prev) => ({
+        ...prev,
+        frequency: value,
+        intervalCount: 1,
+        intervalUnit: 'months',
+      }));
+      return;
+    }
+
+    if (value === 'yearly') {
+      setRecurrence((prev) => ({
+        ...prev,
+        frequency: value,
+        intervalCount: 1,
+        intervalUnit: 'years',
+      }));
+      return;
+    }
+
+    setRecurrence((prev) => ({
+      ...prev,
+      frequency: value,
+    }));
+  };
+
+  const handleToggleScheduleStatus = (scheduleId: string) => {
+    setRecurringSchedules((prev) =>
+      prev.map((schedule) =>
+        schedule.id === scheduleId
+          ? {
+              ...schedule,
+              status: schedule.status === 'active' ? 'paused' : 'active',
+            }
+          : schedule
+      )
+    );
+  };
+
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setRecurringSchedules((prev) => prev.filter((schedule) => schedule.id !== scheduleId));
+  };
+
+  const handleGenerateNow = (scheduleId: string) => {
+    const schedule = recurringSchedules.find((item) => item.id === scheduleId);
+    if (!schedule) return;
+
+    const invoiceDate = todayISO();
+    const dueDate = addDays(invoiceDate, schedule.dueInDays);
+    const subtotal = calculateSubtotalFromServices(schedule.template.services);
+    const total = subtotal + schedule.template.tax;
+    const invoiceNumber = makeInvoiceNumber(schedule.client.name, invoiceDate);
+
+    const generated: GeneratedInvoice = {
+      id: createId(),
+      scheduleId: schedule.id,
+      clientName: schedule.client.name,
+      invoiceDate,
+      dueDate,
+      invoiceNumber,
+      subtotal,
+      total,
+      createdAt: todayISO(),
+    };
+
+    setGeneratedInvoices((prev) => [generated, ...prev].slice(0, 50));
+    setRecurringSchedules((prev) =>
+      prev.map((item) =>
+        item.id === scheduleId
+          ? {
+              ...item,
+              lastGenerated: invoiceDate,
+              nextRun: addInterval(invoiceDate, item.intervalCount, item.intervalUnit),
+            }
+          : item
+      )
+    );
+
+    applyScheduleToForm(schedule, invoiceDate);
+    setScheduleMessage(`Invoice generated for ${schedule.client.name}.`);
+  };
+
+  const selectStyles =
+    'w-full px-4 py-2.5 bg-white dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-600 rounded-lg text-stone-900 dark:text-stone-100 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-900 focus:outline-none transition-all duration-200';
 
   const handleGeneratePDF = async () => {
     setIsGenerating(true);
@@ -416,6 +920,306 @@ export default function InvoiceForm() {
                   className="w-full px-4 py-3 bg-white dark:bg-stone-800 border-2 border-stone-200 dark:border-stone-600 rounded-lg text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-900 focus:outline-none transition-all duration-200 min-h-[100px]"
                   placeholder="Add any additional notes or payment instructions..."
                 />
+              </div>
+            </Card>
+
+            <Card variant="elevated" className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/50 rounded-lg flex items-center justify-center">
+                  <Repeat className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-stone-800 dark:text-stone-100">
+                  Recurring Invoices
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                    Recurrence
+                  </label>
+                  <select
+                    className={selectStyles}
+                    value={recurrence.frequency}
+                    onChange={(e) =>
+                      handleRecurrenceFrequencyChange(e.target.value as RecurrenceFrequency)
+                    }
+                  >
+                    <option value="none">No recurrence</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="custom">Custom interval</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="Start Date"
+                  type="date"
+                  value={recurrence.startDate}
+                  onChange={(e) =>
+                    setRecurrence((prev) => ({ ...prev, startDate: e.target.value }))
+                  }
+                  icon={<Calendar className="w-4 h-4" />}
+                  disabled={recurrence.frequency === 'none'}
+                />
+
+                {recurrence.frequency === 'custom' && (
+                  <>
+                    <Input
+                      label="Every"
+                      type="number"
+                      min="1"
+                      value={recurrence.intervalCount}
+                      onChange={(e) =>
+                        setRecurrence((prev) => ({
+                          ...prev,
+                          intervalCount: Math.max(1, Number(e.target.value) || 1),
+                        }))
+                      }
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                        Interval Unit
+                      </label>
+                      <select
+                        className={selectStyles}
+                        value={recurrence.intervalUnit}
+                        onChange={(e) =>
+                          setRecurrence((prev) => ({
+                            ...prev,
+                            intervalUnit: e.target.value as IntervalUnit,
+                          }))
+                        }
+                      >
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                        <option value="months">Months</option>
+                        <option value="years">Years</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-stone-300 text-sky-600 focus:ring-sky-500"
+                    checked={recurrence.notifyEnabled}
+                    onChange={(e) =>
+                      setRecurrence((prev) => ({ ...prev, notifyEnabled: e.target.checked }))
+                    }
+                    disabled={recurrence.frequency === 'none'}
+                  />
+                  <span className="text-sm text-stone-700 dark:text-stone-300">
+                    Notify before generation
+                  </span>
+                </div>
+
+                <Input
+                  label="Notify Days Before"
+                  type="number"
+                  min="0"
+                  value={recurrence.notifyDaysBefore}
+                  onChange={(e) =>
+                    setRecurrence((prev) => ({
+                      ...prev,
+                      notifyDaysBefore: Math.max(0, Number(e.target.value) || 0),
+                    }))
+                  }
+                  disabled={!recurrence.notifyEnabled || recurrence.frequency === 'none'}
+                  icon={<Bell className="w-4 h-4" />}
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-stone-600 dark:text-stone-400">
+                <CalendarClock className="w-4 h-4" />
+                <span>
+                  Next scheduled invoice:{' '}
+                  <span className="font-semibold text-stone-800 dark:text-stone-100">
+                    {nextRecurringDate ?? '—'}
+                  </span>
+                </span>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleCreateSchedule}
+                  disabled={recurrence.frequency === 'none'}
+                >
+                  Save Recurring Schedule
+                </Button>
+                {notificationStatus !== 'unsupported' && (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={requestNotificationPermission}
+                    disabled={notificationStatus === 'granted'}
+                  >
+                    {notificationStatus === 'granted'
+                      ? 'Notifications Enabled'
+                      : 'Enable Browser Notifications'}
+                  </Button>
+                )}
+              </div>
+
+              {scheduleError && (
+                <p className="text-sm text-red-600 font-medium mt-3">{scheduleError}</p>
+              )}
+              {scheduleMessage && (
+                <p className="text-sm text-green-600 font-medium mt-3">{scheduleMessage}</p>
+              )}
+
+              <div className="mt-8 border-t border-stone-200 dark:border-stone-700 pt-6">
+                <h3 className="text-lg font-semibold text-stone-800 dark:text-stone-100 mb-4">
+                  Active Schedules
+                </h3>
+
+                {recurringSchedules.length === 0 && (
+                  <p className="text-sm text-stone-500 dark:text-stone-400">
+                    No recurring schedules yet. Save one to automate future invoices.
+                  </p>
+                )}
+
+                <div className="space-y-4">
+                  {recurringSchedules.map((schedule) => {
+                    const daysUntil = diffInDays(todayISO(), schedule.nextRun);
+                    const daysLabel =
+                      daysUntil === 0
+                        ? 'Today'
+                        : daysUntil === 1
+                        ? 'In 1 day'
+                        : `In ${daysUntil} days`;
+
+                    return (
+                      <div
+                        key={schedule.id}
+                        className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/40 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs text-stone-500 dark:text-stone-400">
+                              Client
+                            </p>
+                            <p className="text-base font-semibold text-stone-800 dark:text-stone-100">
+                              {schedule.client.name || 'Unnamed Client'}
+                            </p>
+                            <p className="text-xs text-stone-500 dark:text-stone-400">
+                              {schedule.client.email || 'No email on file'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-stone-500 dark:text-stone-400">Next Run</p>
+                            <p className="text-base font-semibold text-stone-800 dark:text-stone-100">
+                              {schedule.nextRun}
+                            </p>
+                            <p className="text-xs text-stone-500 dark:text-stone-400">
+                              {daysLabel}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-stone-600 dark:text-stone-400">
+                          <span>
+                            Every {schedule.intervalCount} {schedule.intervalUnit}
+                          </span>
+                          <span>
+                            Status:{' '}
+                            <span className="font-semibold">
+                              {schedule.status === 'active' ? 'Active' : 'Paused'}
+                            </span>
+                          </span>
+                          <span>
+                            Notify:{' '}
+                            {schedule.notify.enabled
+                              ? `${schedule.notify.daysBefore} days before`
+                              : 'Off'}
+                          </span>
+                          <span>
+                            Last Generated:{' '}
+                            {schedule.lastGenerated ? schedule.lastGenerated : '—'}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => applyScheduleToForm(schedule, schedule.nextRun)}
+                          >
+                            Load Template
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleGenerateNow(schedule.id)}
+                          >
+                            Generate Now
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={
+                              schedule.status === 'active' ? (
+                                <PauseCircle className="w-4 h-4" />
+                              ) : (
+                                <PlayCircle className="w-4 h-4" />
+                              )
+                            }
+                            onClick={() => handleToggleScheduleStatus(schedule.id)}
+                          >
+                            {schedule.status === 'active' ? 'Pause' : 'Resume'}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            leftIcon={<Trash2 className="w-4 h-4" />}
+                            onClick={() => handleDeleteSchedule(schedule.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-8 border-t border-stone-200 dark:border-stone-700 pt-6">
+                <h3 className="text-lg font-semibold text-stone-800 dark:text-stone-100 mb-4">
+                  Generated Invoices
+                </h3>
+                {generatedInvoices.length === 0 && (
+                  <p className="text-sm text-stone-500 dark:text-stone-400">
+                    Generated invoices will appear here when schedules run.
+                  </p>
+                )}
+                <div className="space-y-3">
+                  {generatedInvoices.slice(0, 5).map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 dark:border-stone-700 p-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-semibold text-stone-800 dark:text-stone-100">
+                          {invoice.clientName}
+                        </p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400">
+                          {invoice.invoiceNumber} • {invoice.invoiceDate}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-stone-800 dark:text-stone-100">
+                          R {invoice.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400">
+                          Due {invoice.dueDate}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </Card>
           </div>
