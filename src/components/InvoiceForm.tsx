@@ -25,12 +25,16 @@ import {
   Hash,
   Landmark,
   CreditCard,
+  LockKeyhole,
+  History,
+  Wallet,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { ServiceItem } from './ServiceItem';
 import { generatePDF, generatePDFAsBase64 } from '@/utils/generateDoc';
+import { formatExchangeRate, formatMoney, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import { Loader } from './ui/Loader';
 
 interface Service {
@@ -249,6 +253,9 @@ export default function InvoiceForm() {
 
   const [tax, setTax] = useState(0);
   const [notes, setNotes] = useState('');
+  const [businessCurrency, setBusinessCurrency] = useState('ZAR');
+  const [invoiceCurrency, setInvoiceCurrency] = useState('ZAR');
+  const [exchangeRate, setExchangeRate] = useState(1);
 
   const [recurrence, setRecurrence] = useState<RecurrenceSettings>(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -708,6 +715,9 @@ export default function InvoiceForm() {
       notes,
       subtotal: calculateSubtotal(),
       grandTotal: calculateGrandTotal(),
+      currency: invoiceCurrency,
+      businessCurrency,
+      exchangeRate,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -739,6 +749,9 @@ export default function InvoiceForm() {
         notes,
         subtotal: calculateSubtotal(),
         grandTotal: calculateGrandTotal(),
+        currency: invoiceCurrency,
+        businessCurrency,
+        exchangeRate,
       });
 
       setIsGenerating(false);
@@ -790,6 +803,35 @@ export default function InvoiceForm() {
             Professional invoices in minutes
           </p>
         </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card variant="elevated" className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 bg-sky-100 dark:bg-sky-900/50 rounded-xl flex items-center justify-center">
+                <LockKeyhole className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Google business login</h2>
+                <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
+                  Planned for NextAuth Google OAuth backed by Neon PostgreSQL. A business profile is created after first Google login when one does not already exist.
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card variant="elevated" className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Secure client portal</h2>
+                <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
+                  Clients can view paid/unpaid invoices, download PDFs, see payment history, pay online through Stripe/PayPal/Open Payments-compatible providers, or use displayed bank details.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
@@ -1081,7 +1123,7 @@ export default function InvoiceForm() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="Tax (R)"
+                  label={`Tax (${invoiceCurrency})`}
                   type="number"
                   value={tax}
                   onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
@@ -1091,6 +1133,45 @@ export default function InvoiceForm() {
                   icon={<Banknote className="w-4 h-4" />}
                 />
               </div>
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                    Default Business Currency
+                  </label>
+                  <select className={selectStyles} value={businessCurrency} onChange={(e) => setBusinessCurrency(e.target.value)}>
+                    {SUPPORTED_CURRENCIES.map((currency) => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.code} — {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                    Invoice Currency
+                  </label>
+                  <select className={selectStyles} value={invoiceCurrency} onChange={(e) => setInvoiceCurrency(e.target.value)}>
+                    {SUPPORTED_CURRENCIES.map((currency) => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.code} — {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label="Exchange Rate"
+                  type="number"
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+                  min="0.000001"
+                  step="0.000001"
+                  icon={<Globe className="w-4 h-4" />}
+                />
+              </div>
+              <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+                {businessCurrency === invoiceCurrency ? 'No exchange rate needed.' : formatExchangeRate(exchangeRate, businessCurrency, invoiceCurrency)}
+              </p>
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
@@ -1393,7 +1474,7 @@ export default function InvoiceForm() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-stone-800 dark:text-stone-100">
-                          R {invoice.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatMoney(invoice.total, invoiceCurrency)}
                         </p>
                         <p className="text-xs text-stone-500 dark:text-stone-400">
                           Due {invoice.dueDate}
@@ -1406,7 +1487,16 @@ export default function InvoiceForm() {
             </Card>
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <Card variant="elevated" className="p-6">
+              <h3 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-4">Client Portal Preview</h3>
+              <div className="space-y-3 text-sm text-stone-600 dark:text-stone-400">
+                <p className="flex items-center gap-2"><FileCheck className="w-4 h-4 text-sky-500" /> Paid and unpaid invoice list</p>
+                <p className="flex items-center gap-2"><Download className="w-4 h-4 text-sky-500" /> PDF download for every invoice</p>
+                <p className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-sky-500" /> Online payments plus banking details fallback</p>
+                <p className="flex items-center gap-2"><History className="w-4 h-4 text-sky-500" /> Payment history over time</p>
+              </div>
+            </Card>
             <Card variant="elevated" className="p-8 sticky top-8">
               <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-6">Summary</h3>
 
@@ -1414,14 +1504,14 @@ export default function InvoiceForm() {
                 <div className="flex justify-between items-center pb-3 border-b border-stone-200 dark:border-stone-700">
                   <span className="text-stone-600 dark:text-stone-400">Subtotal</span>
                   <span className="text-lg font-semibold text-stone-800 dark:text-stone-100">
-                    R {calculateSubtotal().toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatMoney(calculateSubtotal(), invoiceCurrency)}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center pb-3 border-b border-stone-200 dark:border-stone-700">
                   <span className="text-stone-600 dark:text-stone-400">Tax</span>
                   <span className="text-lg font-semibold text-green-600 dark:text-green-400">
-                    +R {tax.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    +{formatMoney(tax, invoiceCurrency)}
                   </span>
                 </div>
 
@@ -1432,7 +1522,7 @@ export default function InvoiceForm() {
                 >
                   <p className="text-sm opacity-90 mb-2">Total Amount Due</p>
                   <p className="text-4xl font-bold">
-                    R {calculateGrandTotal().toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatMoney(calculateGrandTotal(), invoiceCurrency)}
                   </p>
                 </motion.div>
               </div>

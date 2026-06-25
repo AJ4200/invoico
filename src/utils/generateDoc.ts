@@ -1,7 +1,5 @@
 import { jsPDF } from 'jspdf';
-
-const formatRands = (amount: number): string =>
-  `R ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { formatExchangeRate, formatMoney, getCurrency } from './currency';
 
 export interface InvoiceData {
   clientInfo: { name: string; email: string; address: string; phone: string };
@@ -25,6 +23,9 @@ export interface InvoiceData {
   services: { description: string; date: string; quantity: number; unitPrice: number; discount: number; total: number }[];
   tax: number;
   notes: string;
+  currency: string;
+  businessCurrency: string;
+  exchangeRate: number;
   subtotal: number;
   grandTotal: number;
 }
@@ -40,6 +41,9 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
     notes,
     subtotal,
     grandTotal,
+    currency,
+    businessCurrency,
+    exchangeRate,
   } = data;
   const doc = new jsPDF();
   const pageWidth = 210;
@@ -48,6 +52,8 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   const amountColRight = margin + contentWidth;
 
   const company = companyInfo;
+  const invoiceCurrency = getCurrency(currency);
+  const currencyLabel = `${invoiceCurrency.code} (${invoiceCurrency.name})`;
 
   const colors = {
     primary: [15, 23, 42] as [number, number, number],
@@ -148,7 +154,7 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setTextColor(...colors.secondary);
   doc.text(invoiceDetails.invoiceDate, margin + 8, currentY + 18);
   doc.text(invoiceDetails.dueDate, margin + 65, currentY + 18);
-  doc.text('ZAR (South African Rand)', margin + 122, currentY + 18);
+  doc.text(currencyLabel, margin + 122, currentY + 18);
 
   currentY += 38;
 
@@ -201,13 +207,13 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
     doc.text(descLines, margin + 4, currentY + 4);
     doc.text(service.date || '—', margin + 82, currentY + 4);
     doc.text(service.quantity.toString(), margin + 100, currentY + 4);
-    doc.text(formatRands(service.unitPrice), margin + 115, currentY + 4);
+    doc.text(formatMoney(service.unitPrice, currency), margin + 115, currentY + 4);
     const discount = service.discount ?? 0;
     doc.setTextColor(...(discount > 0 ? colors.discount : colors.dark));
-    doc.text(formatRands(discount), margin + 140, currentY + 4);
+    doc.text(formatMoney(discount, currency), margin + 140, currentY + 4);
     doc.setTextColor(...colors.dark);
     doc.setFont('helvetica', 'bold');
-    doc.text(formatRands(service.total), amountColRight, currentY + 4, { align: 'right' });
+    doc.text(formatMoney(service.total, currency), amountColRight, currentY + 4, { align: 'right' });
     doc.setFont('helvetica', 'normal');
 
     const lineHeight = Math.max(descLines.length * 5, 10);
@@ -225,12 +231,12 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Subtotal', margin + 130, currentY);
-  doc.text(formatRands(subtotal), amountColRight, currentY, { align: 'right' });
+  doc.text(formatMoney(subtotal, currency), amountColRight, currentY, { align: 'right' });
   currentY += 8;
 
   doc.text('Tax (VAT)', margin + 130, currentY);
   doc.setTextColor(...colors.success);
-  doc.text(`+ ${formatRands(tax)}`, amountColRight, currentY, { align: 'right' });
+  doc.text(`+ ${formatMoney(tax, currency)}`, amountColRight, currentY, { align: 'right' });
   doc.setTextColor(...colors.dark);
   currentY += 14;
 
@@ -240,7 +246,7 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Amount Due', margin + 110, currentY + 2);
-  doc.text(formatRands(grandTotal), amountColRight, currentY + 2, { align: 'right' });
+  doc.text(formatMoney(grandTotal, currency), amountColRight, currentY + 2, { align: 'right' });
 
   currentY += 24;
 
@@ -285,6 +291,10 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
 
   doc.text('PayShap', margin + 110, currentY + 22);
   doc.text(`Cell: ${bankingDetails.payShapCell || '—'}`, margin + 110, currentY + 28);
+  if (currency !== businessCurrency) {
+    doc.text('Exchange Rate', margin + 110, currentY + 38);
+    doc.text(formatExchangeRate(exchangeRate, businessCurrency, currency), margin + 110, currentY + 44);
+  }
 
   currentY += 60;
 
@@ -304,7 +314,7 @@ function buildInvoicePDF(data: InvoiceData): jsPDF {
   doc.setTextColor(...colors.secondary);
   const terms = [
     '• Payment is due within the specified due date. Late payments may incur interest.',
-    '• All amounts are in South African Rand (ZAR) unless otherwise stated.',
+    `• All amounts are in ${invoiceCurrency.name} (${invoiceCurrency.code}) unless otherwise stated.`,
     '• Please use the invoice number as your payment reference.',
     '• VAT is included where applicable. Tax invoice available on request.',
   ];
