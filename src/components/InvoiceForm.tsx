@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,6 +26,9 @@ import {
   Hash,
   Landmark,
   CreditCard,
+  ArrowRight,
+  RotateCcw,
+  Save,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
@@ -34,12 +38,23 @@ import { generatePDF } from '@/utils/generateDoc';
 import { formatExchangeRate, formatMoney, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import { buildInvoiceMailto } from '@/utils/emailDraft';
 import { Loader } from './ui/Loader';
-import { BusinessPortalPanel } from './portal/BusinessPortalPanel';
 import { PortalSummaryCards } from './portal/PortalSummaryCards';
 import { useBusinessPortal } from '@/hooks/useBusinessPortal';
 import { useStoredState } from '@/hooks/useStoredState';
 import {
+  DEFAULT_BANKING_DETAILS,
+  DEFAULT_BUSINESS_CURRENCY,
+  DEFAULT_COMPANY_INFO,
+  DEFAULT_INVOICE_CURRENCY,
+} from '@/data/defaultBusiness';
+import {
+  GENERATED_STORAGE_KEY,
+  INVOICE_DRAFT_STORAGE_KEY,
+  RECURRENCE_STORAGE_KEY,
+} from '@/lib/storageKeys';
+import {
   GeneratedInvoice,
+  InvoiceDraft,
   IntervalUnit,
   RecurrenceFrequency,
   RecurrenceSettings,
@@ -58,14 +73,39 @@ import {
   todayISO,
 } from '@/utils/invoice/schedule';
 
-const RECURRENCE_STORAGE_KEY = 'invoico.recurringSchedules';
-const GENERATED_STORAGE_KEY = 'invoico.generatedInvoices';
+const createDefaultInvoiceDetails = () => {
+  const today = new Date().toISOString().slice(0, 10);
+  return { invoiceNumber: 'INV-', invoiceDate: today, dueDate: today };
+};
+
+const createDefaultService = (): Service => ({
+  description: '',
+  date: '',
+  quantity: 1,
+  unitPrice: 0,
+  discount: 0,
+  total: 0,
+});
+
+const createDefaultRecurrence = (): RecurrenceSettings => ({
+  frequency: 'none',
+  intervalCount: 1,
+  intervalUnit: 'months',
+  startDate: new Date().toISOString().slice(0, 10),
+  notifyEnabled: false,
+  notifyDaysBefore: 3,
+});
 
 export default function InvoiceForm() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingLabel, setGeneratingLabel] = useState('Generating PDF');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [savedDraft, setSavedDraft] = useStoredState<InvoiceDraft | null>(
+    INVOICE_DRAFT_STORAGE_KEY,
+    null
+  );
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const [clientInfo, setClientInfo] = useState({
     name: '',
@@ -74,52 +114,25 @@ export default function InvoiceForm() {
     phone: '',
   });
 
-  const [companyInfo, setCompanyInfo] = useState({
-    name: 'JE Productions',
-    tagline: 'Professional Digital Solutions',
-    email: 'abeljackson33@gmail.com',
-    address: 'Modimolle, Limpopo, South Africa',
-    phone: '+27 62 677 5823',
-    website: 'www.aj4200.dev',
-    regNo: '---',
-    vatNo: '---',
-  });
+  const [companyInfo, setCompanyInfo] = useState(DEFAULT_COMPANY_INFO);
 
-  const [bankingDetails, setBankingDetails] = useState({
-    bankName: 'Capitec',
-    accountNumber: '1534094529',
-    branchCode: '470010',
-    payShapCell: '062 677 5823',
-  });
+  const [bankingDetails, setBankingDetails] = useState(DEFAULT_BANKING_DETAILS);
 
-  const [invoiceDetails, setInvoiceDetails] = useState(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return { invoiceNumber: 'INV-', invoiceDate: today, dueDate: today };
-  });
+  const [invoiceDetails, setInvoiceDetails] = useState(createDefaultInvoiceDetails);
 
   const [services, setServices] = useState<Service[]>([
-    { description: '', date: '', quantity: 1, unitPrice: 0, discount: 0, total: 0 },
+    createDefaultService(),
   ]);
 
   const [expandedServiceIndex, setExpandedServiceIndex] = useState<number | null>(0);
 
   const [tax, setTax] = useState(0);
   const [notes, setNotes] = useState('');
-  const [businessCurrency, setBusinessCurrency] = useState('ZAR');
-  const [invoiceCurrency, setInvoiceCurrency] = useState('ZAR');
+  const [businessCurrency, setBusinessCurrency] = useState(DEFAULT_BUSINESS_CURRENCY);
+  const [invoiceCurrency, setInvoiceCurrency] = useState(DEFAULT_INVOICE_CURRENCY);
   const [exchangeRate, setExchangeRate] = useState(1);
 
-  const [recurrence, setRecurrence] = useState<RecurrenceSettings>(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return {
-      frequency: 'none',
-      intervalCount: 1,
-      intervalUnit: 'months',
-      startDate: today,
-      notifyEnabled: false,
-      notifyDaysBefore: 3,
-    };
-  });
+  const [recurrence, setRecurrence] = useState<RecurrenceSettings>(createDefaultRecurrence);
 
   const [recurringSchedules, setRecurringSchedules] = useStoredState<RecurringSchedule[]>(
     RECURRENCE_STORAGE_KEY,
@@ -158,6 +171,62 @@ export default function InvoiceForm() {
     }
     setNotificationStatus(Notification.permission);
   }, []);
+
+  useEffect(() => {
+    if (draftRestored) return;
+
+    if (!savedDraft) {
+      setDraftRestored(true);
+      return;
+    }
+
+    setClientInfo(savedDraft.clientInfo);
+    setCompanyInfo(savedDraft.companyInfo);
+    setBankingDetails(savedDraft.bankingDetails);
+    setInvoiceDetails(savedDraft.invoiceDetails);
+    setServices(savedDraft.services.length > 0 ? savedDraft.services : [createDefaultService()]);
+    setTax(savedDraft.tax);
+    setNotes(savedDraft.notes);
+    setBusinessCurrency(savedDraft.businessCurrency);
+    setInvoiceCurrency(savedDraft.invoiceCurrency);
+    setExchangeRate(savedDraft.exchangeRate);
+    setDraftRestored(true);
+  }, [draftRestored, savedDraft]);
+
+  useEffect(() => {
+    if (!draftRestored) return;
+
+    const timeout = setTimeout(() => {
+      setSavedDraft({
+        bankingDetails,
+        businessCurrency,
+        clientInfo,
+        companyInfo,
+        exchangeRate,
+        invoiceCurrency,
+        invoiceDetails,
+        notes,
+        savedAt: new Date().toISOString(),
+        services,
+        tax,
+      });
+    }, 600);
+
+    return () => clearTimeout(timeout);
+  }, [
+    bankingDetails,
+    businessCurrency,
+    clientInfo,
+    companyInfo,
+    draftRestored,
+    exchangeRate,
+    invoiceCurrency,
+    invoiceDetails,
+    notes,
+    services,
+    setSavedDraft,
+    tax,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -331,19 +400,9 @@ export default function InvoiceForm() {
   };
 
   const {
-    filteredPortalInvoices,
-    handleDownloadPortalInvoice,
-    handleRecordManualPayment,
-    manualPaymentMethod,
     outstandingPortalTotal,
-    paidInvoiceIds,
     paidPortalInvoices,
-    paymentHistory,
-    portalFilter,
     portalInvoices,
-    portalMessage,
-    setManualPaymentMethod,
-    setPortalFilter,
     unpaidPortalInvoices,
   } = useBusinessPortal({
     clientInfo,
@@ -587,6 +646,39 @@ export default function InvoiceForm() {
     setIsGenerating(false);
   };
 
+  const getClientPortalUrl = () => {
+    const path = getClientPortalPath();
+
+    if (typeof window === 'undefined') return path;
+    return `${window.location.origin}${path}`;
+  };
+
+  const getClientPortalPath = () => {
+    const params = new URLSearchParams();
+    if (clientInfo.email.trim()) params.set('email', clientInfo.email.trim());
+    if (invoiceDetails.invoiceNumber.trim()) {
+      params.set('invoice', invoiceDetails.invoiceNumber.trim());
+    }
+
+    const query = params.toString();
+    return query ? `/client?${query}` : '/client';
+  };
+
+  const handleClearDraft = () => {
+    setClientInfo({ name: '', email: '', address: '', phone: '' });
+    setCompanyInfo(DEFAULT_COMPANY_INFO);
+    setBankingDetails(DEFAULT_BANKING_DETAILS);
+    setInvoiceDetails(createDefaultInvoiceDetails());
+    setServices([createDefaultService()]);
+    setExpandedServiceIndex(0);
+    setTax(0);
+    setNotes('');
+    setBusinessCurrency(DEFAULT_BUSINESS_CURRENCY);
+    setInvoiceCurrency(DEFAULT_INVOICE_CURRENCY);
+    setExchangeRate(1);
+    setSavedDraft(null);
+  };
+
   const handleOpenEmailDraft = () => {
     if (!clientInfo.email?.trim()) {
       setEmailStatus('error');
@@ -605,6 +697,7 @@ export default function InvoiceForm() {
         grandTotal: calculateGrandTotal(),
         invoiceCurrency,
         invoiceDetails,
+        portalUrl: getClientPortalUrl(),
       });
 
       window.location.href = mailtoUrl;
@@ -1296,21 +1389,53 @@ export default function InvoiceForm() {
           </div>
 
           <div className="lg:col-span-1 space-y-6">
-            <BusinessPortalPanel
-              bankingDetails={bankingDetails}
-              filteredPortalInvoices={filteredPortalInvoices}
-              invoiceNumber={invoiceDetails.invoiceNumber}
-              manualPaymentMethod={manualPaymentMethod}
-              paidInvoiceIds={paidInvoiceIds}
-              paymentHistory={paymentHistory}
-              portalFilter={portalFilter}
-              portalMessage={portalMessage}
-              selectStyles={selectStyles}
-              onDownloadInvoice={handleDownloadPortalInvoice}
-              onRecordPayment={handleRecordManualPayment}
-              onSetManualPaymentMethod={setManualPaymentMethod}
-              onSetPortalFilter={setPortalFilter}
-            />
+            <Card variant="elevated" className="p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/50">
+                  <FileCheck className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-stone-800 dark:text-stone-100">
+                    Portal Access
+                  </h3>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">
+                    Open the dedicated portal pages
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Link
+                  href="/business"
+                  className="flex items-center justify-between rounded-lg border border-stone-200 p-4 transition-colors hover:border-sky-300 hover:bg-sky-50 dark:border-stone-700 dark:hover:border-sky-700 dark:hover:bg-sky-950/40"
+                >
+                  <div>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100">
+                      Business Portal
+                    </p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">
+                      Record payments and manage invoices
+                    </p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-sky-600" />
+                </Link>
+
+                <Link
+                  href={getClientPortalPath()}
+                  className="flex items-center justify-between rounded-lg border border-stone-200 p-4 transition-colors hover:border-emerald-300 hover:bg-emerald-50 dark:border-stone-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30"
+                >
+                  <div>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100">
+                      Client Portal
+                    </p>
+                    <p className="text-sm text-stone-500 dark:text-stone-400">
+                      View PDFs and payment instructions
+                    </p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-emerald-600" />
+                </Link>
+              </div>
+            </Card>
             <Card variant="elevated" className="p-8 sticky top-8">
               <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-6">Summary</h3>
 
@@ -1339,6 +1464,35 @@ export default function InvoiceForm() {
                     {formatMoney(calculateGrandTotal(), invoiceCurrency)}
                   </p>
                 </motion.div>
+              </div>
+
+              <div className="mb-4 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-stone-700 dark:bg-stone-800/70">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex gap-2 text-sm text-stone-600 dark:text-stone-300">
+                    <Save className="mt-0.5 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <p className="font-medium text-stone-800 dark:text-stone-100">
+                        Draft autosaved
+                      </p>
+                      <p className="text-xs text-stone-500 dark:text-stone-400">
+                        {savedDraft?.savedAt
+                          ? new Date(savedDraft.savedAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Preparing first save'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearDraft}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-stone-600 hover:bg-white hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-700 dark:hover:text-white"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">

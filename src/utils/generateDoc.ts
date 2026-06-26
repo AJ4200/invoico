@@ -347,10 +347,3 @@ export const generatePDF = (data: InvoiceData): void => {
   const doc = buildInvoicePDF(data);
   doc.save(`${data.clientInfo.name.replace(/\s+/g, '-')}-invoice-${data.invoiceDetails.invoiceNumber}.pdf`);
 };
-
-/** Returns the PDF as base64 string for email attachment */
-export const generatePDFAsBase64 = (data: InvoiceData): string => {
-  const doc = buildInvoicePDF(data);
-  const dataUri = doc.output('datauristring');
-  return dataUri.split(',')[1] ?? '';
-};

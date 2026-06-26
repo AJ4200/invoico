@@ -116,3 +116,17 @@ export interface PortalPayment {
   method: PaymentCollectionMethod;
   recordedAt: string;
 }
+
+export interface InvoiceDraft {
+  bankingDetails: BankingDetails;
+  businessCurrency: string;
+  clientInfo: ClientInfo;
+  companyInfo: CompanyInfo;
+  exchangeRate: number;
+  invoiceCurrency: string;
+  invoiceDetails: InvoiceDetails;
+  notes: string;
+  savedAt: string;
+  services: Service[];
+  tax: number;
+}

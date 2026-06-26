@@ -8,6 +8,7 @@ interface InvoiceMailtoArgs {
   grandTotal: number;
   invoiceCurrency: string;
   invoiceDetails: InvoiceDetails;
+  portalUrl?: string;
 }
 
 export function buildInvoiceMailto({
@@ -17,6 +18,7 @@ export function buildInvoiceMailto({
   grandTotal,
   invoiceCurrency,
   invoiceDetails,
+  portalUrl,
 }: InvoiceMailtoArgs) {
   const companyName = companyInfo.name || 'Your Company';
   const clientName = clientInfo.name || 'Valued Client';
@@ -37,6 +39,13 @@ export function buildInvoiceMailto({
     `Account number: ${bankingDetails.accountNumber || 'Available on request'}`,
     `Branch code: ${bankingDetails.branchCode || 'Available on request'}`,
     `Reference: ${invoiceNumber}`,
+    ...(portalUrl
+      ? [
+          '',
+          'Client portal:',
+          portalUrl,
+        ]
+      : []),
     '',
     'Please attach the downloaded PDF invoice before sending.',
     '',

@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FileText, Github } from 'lucide-react';
+import { Github } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { LogoMark } from './brand/LogoMark';
 
 const GITHUB_URL = 'https://github.com/aj4200';
 const GITHUB_USER = '@aj4200';
@@ -17,21 +19,25 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/25">
-              <FileText className="w-6 h-6 text-white" strokeWidth={2.5} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-stone-800 dark:text-stone-100 tracking-tight">
-                Invoico
-              </h1>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Professional Invoice Generator
-              </p>
-            </div>
-          </div>
+          <Link href="/" aria-label="Invoico home">
+            <LogoMark showWordmark />
+          </Link>
 
           <div className="flex items-center gap-2">
+            <nav className="hidden items-center gap-1 md:flex">
+              <Link
+                href="/business"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+              >
+                Business
+              </Link>
+              <Link
+                href="/client"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+              >
+                Client
+              </Link>
+            </nav>
             <motion.a
               href={GITHUB_URL}
               target="_blank"

@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import { generatePDF } from '@/utils/generateDoc';
 import { calculateSubtotalFromServices, createId } from '@/utils/invoice/schedule';
 import {
+  PAID_INVOICES_STORAGE_KEY,
+  PAYMENT_HISTORY_STORAGE_KEY,
+} from '@/lib/storageKeys';
+import {
   BankingDetails,
   ClientInfo,
   CompanyInfo,
@@ -15,9 +19,6 @@ import {
   Service,
 } from '@/types/invoice';
 import { useStoredState } from './useStoredState';
-
-const PAID_INVOICES_STORAGE_KEY = 'invoico.paidInvoices';
-const PAYMENT_HISTORY_STORAGE_KEY = 'invoico.paymentHistory';
 
 interface UseBusinessPortalArgs {
   clientInfo: ClientInfo;

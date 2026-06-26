@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
@@ -14,11 +14,31 @@ export const metadata: Metadata = {
   keywords: ['invoice', 'generator', 'professional', 'invoicing', 'freelance', 'business'],
   authors: [{ name: 'aj4200', url: 'https://github.com/aj4200' }],
   creator: 'aj4200',
+  applicationName: 'Invoico',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/invoico-icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icons/invoico-icon.svg',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Invoico',
+    statusBarStyle: 'default',
+  },
   openGraph: {
     title: 'Invoico - Professional Invoice Generator',
     description: 'Create professional invoices in minutes',
     type: 'website',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0ea5e9',
+  colorScheme: 'light dark',
 };
 
 export default function RootLayout({
