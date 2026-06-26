@@ -25,9 +25,6 @@ import {
   Hash,
   Landmark,
   CreditCard,
-  LockKeyhole,
-  History,
-  Wallet,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
@@ -36,177 +33,32 @@ import { ServiceItem } from './ServiceItem';
 import { generatePDF, generatePDFAsBase64 } from '@/utils/generateDoc';
 import { formatExchangeRate, formatMoney, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import { Loader } from './ui/Loader';
-
-interface Service {
-  description: string;
-  date: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-  total: number;
-}
-
-type RecurrenceFrequency = 'none' | 'monthly' | 'yearly' | 'custom';
-type IntervalUnit = 'days' | 'weeks' | 'months' | 'years';
-
-interface RecurrenceSettings {
-  frequency: RecurrenceFrequency;
-  intervalCount: number;
-  intervalUnit: IntervalUnit;
-  startDate: string;
-  notifyEnabled: boolean;
-  notifyDaysBefore: number;
-}
-
-interface ScheduleTemplate {
-  services: Service[];
-  tax: number;
-  notes: string;
-}
-
-interface ScheduleNotification {
-  enabled: boolean;
-  daysBefore: number;
-  lastNotifiedFor?: string;
-}
-
-interface RecurringSchedule {
-  id: string;
-  client: {
-    name: string;
-    email: string;
-    address: string;
-    phone: string;
-  };
-  template: ScheduleTemplate;
-  intervalCount: number;
-  intervalUnit: IntervalUnit;
-  startDate: string;
-  nextRun: string;
-  status: 'active' | 'paused';
-  createdAt: string;
-  lastGenerated?: string;
-  dueInDays: number;
-  notify: ScheduleNotification;
-}
-
-interface GeneratedInvoice {
-  id: string;
-  scheduleId: string;
-  clientName: string;
-  invoiceDate: string;
-  dueDate: string;
-  invoiceNumber: string;
-  subtotal: number;
-  total: number;
-  createdAt: string;
-}
+import { BusinessPortalPanel } from './portal/BusinessPortalPanel';
+import { PortalSummaryCards } from './portal/PortalSummaryCards';
+import { useBusinessPortal } from '@/hooks/useBusinessPortal';
+import { useStoredState } from '@/hooks/useStoredState';
+import {
+  GeneratedInvoice,
+  IntervalUnit,
+  RecurrenceFrequency,
+  RecurrenceSettings,
+  RecurringSchedule,
+  Service,
+} from '@/types/invoice';
+import {
+  addDays,
+  addInterval,
+  calculateSubtotalFromServices,
+  computeNextRun,
+  createId,
+  diffInDays,
+  makeInvoiceNumber,
+  normalizeServices,
+  todayISO,
+} from '@/utils/invoice/schedule';
 
 const RECURRENCE_STORAGE_KEY = 'invoico.recurringSchedules';
 const GENERATED_STORAGE_KEY = 'invoico.generatedInvoices';
-
-const parseISODate = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-};
-
-const formatISODate = (date: Date) => date.toISOString().slice(0, 10);
-
-const todayISO = () => formatISODate(new Date());
-
-const addDays = (dateISO: string, days: number) => {
-  const date = parseISODate(dateISO);
-  date.setUTCDate(date.getUTCDate() + days);
-  return formatISODate(date);
-};
-
-const addInterval = (dateISO: string, count: number, unit: IntervalUnit) => {
-  const date = parseISODate(dateISO);
-
-  if (unit === 'days') {
-    date.setUTCDate(date.getUTCDate() + count);
-    return formatISODate(date);
-  }
-
-  if (unit === 'weeks') {
-    date.setUTCDate(date.getUTCDate() + count * 7);
-    return formatISODate(date);
-  }
-
-  if (unit === 'months') {
-    const day = date.getUTCDate();
-    date.setUTCDate(1);
-    date.setUTCMonth(date.getUTCMonth() + count);
-    const daysInTargetMonth = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
-    ).getUTCDate();
-    date.setUTCDate(Math.min(day, daysInTargetMonth));
-    return formatISODate(date);
-  }
-
-  const day = date.getUTCDate();
-  const month = date.getUTCMonth();
-  date.setUTCDate(1);
-  date.setUTCFullYear(date.getUTCFullYear() + count);
-  date.setUTCMonth(month);
-  const daysInTargetMonth = new Date(
-    Date.UTC(date.getUTCFullYear(), month + 1, 0)
-  ).getUTCDate();
-  date.setUTCDate(Math.min(day, daysInTargetMonth));
-  return formatISODate(date);
-};
-
-const diffInDays = (fromISO: string, toISO: string) => {
-  const from = parseISODate(fromISO);
-  const to = parseISODate(toISO);
-  return Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-};
-
-const computeNextRun = (
-  startDate: string,
-  intervalCount: number,
-  intervalUnit: IntervalUnit,
-  currentDate: string
-) => {
-  if (!startDate) return currentDate;
-  let next = startDate;
-  while (next < currentDate) {
-    next = addInterval(next, intervalCount, intervalUnit);
-  }
-  return next;
-};
-
-const normalizeServices = (items: Service[]) =>
-  items.map((service) => {
-    const lineTotal = service.quantity * service.unitPrice;
-    return {
-      ...service,
-      total: Math.max(0, lineTotal - service.discount),
-    };
-  });
-
-const calculateSubtotalFromServices = (items: Service[]) =>
-  items.reduce((acc, service) => acc + service.total, 0);
-
-const makeInvoiceNumber = (clientName: string, dateISO: string) => {
-  const datePart = dateISO.replace(/-/g, '');
-  const initials = clientName
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 3);
-  return initials ? `INV-${datePart}-${initials}` : `INV-${datePart}`;
-};
-
-const createId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
 
 export default function InvoiceForm() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -273,6 +125,12 @@ export default function InvoiceForm() {
   const [generatedInvoices, setGeneratedInvoices] = useState<GeneratedInvoice[]>([]);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [portalFilter, setPortalFilter] = useState<PortalInvoiceStatus>('all');
+  const [paidInvoiceIds, setPaidInvoiceIds] = useState<string[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PortalPayment[]>([]);
+  const [manualPaymentMethod, setManualPaymentMethod] =
+    useState<PaymentCollectionMethod>('PayShap');
+  const [portalMessage, setPortalMessage] = useState<string | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<
     'unsupported' | NotificationPermission
   >('default');
@@ -303,9 +161,19 @@ export default function InvoiceForm() {
       if (storedGenerated) {
         setGeneratedInvoices(JSON.parse(storedGenerated));
       }
+      const storedPaidInvoices = localStorage.getItem(PAID_INVOICES_STORAGE_KEY);
+      if (storedPaidInvoices) {
+        setPaidInvoiceIds(JSON.parse(storedPaidInvoices));
+      }
+      const storedPaymentHistory = localStorage.getItem(PAYMENT_HISTORY_STORAGE_KEY);
+      if (storedPaymentHistory) {
+        setPaymentHistory(JSON.parse(storedPaymentHistory));
+      }
     } catch {
       setRecurringSchedules([]);
       setGeneratedInvoices([]);
+      setPaidInvoiceIds([]);
+      setPaymentHistory([]);
     }
   }, []);
 
@@ -318,6 +186,16 @@ export default function InvoiceForm() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(GENERATED_STORAGE_KEY, JSON.stringify(generatedInvoices));
   }, [generatedInvoices]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(PAID_INVOICES_STORAGE_KEY, JSON.stringify(paidInvoiceIds));
+  }, [paidInvoiceIds]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(PAYMENT_HISTORY_STORAGE_KEY, JSON.stringify(paymentHistory));
+  }, [paymentHistory]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -498,6 +376,51 @@ export default function InvoiceForm() {
     const subtotal = calculateSubtotal();
     return subtotal + tax;
   };
+
+  const currentPortalInvoice: PortalInvoice = {
+    id: `current:${invoiceDetails.invoiceNumber || 'draft'}`,
+    source: 'current',
+    clientName: clientInfo.name || 'Current draft',
+    clientEmail: clientInfo.email,
+    invoiceDate: invoiceDetails.invoiceDate,
+    dueDate: invoiceDetails.dueDate,
+    invoiceNumber: invoiceDetails.invoiceNumber || 'Draft invoice',
+    total: calculateGrandTotal(),
+    currency: invoiceCurrency,
+  };
+
+  const portalInvoices: PortalInvoice[] = [
+    currentPortalInvoice,
+    ...generatedInvoices.map((invoice) => ({
+      id: invoice.id,
+      source: 'generated' as PortalInvoiceSource,
+      scheduleId: invoice.scheduleId,
+      clientName: invoice.clientName,
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      invoiceNumber: invoice.invoiceNumber,
+      total: invoice.total,
+      currency: invoiceCurrency,
+    })),
+  ];
+
+  const filteredPortalInvoices = portalInvoices.filter((invoice) => {
+    const isPaid = paidInvoiceIds.includes(invoice.id);
+    if (portalFilter === 'paid') return isPaid;
+    if (portalFilter === 'unpaid') return !isPaid;
+    return true;
+  });
+
+  const unpaidPortalInvoices = portalInvoices.filter(
+    (invoice) => !paidInvoiceIds.includes(invoice.id)
+  );
+  const paidPortalInvoices = portalInvoices.filter((invoice) =>
+    paidInvoiceIds.includes(invoice.id)
+  );
+  const outstandingPortalTotal = unpaidPortalInvoices.reduce(
+    (sum, invoice) => sum + invoice.total,
+    0
+  );
 
   const recurrenceInterval = (() => {
     if (recurrence.frequency === 'monthly') {
@@ -724,6 +647,76 @@ export default function InvoiceForm() {
     setIsGenerating(false);
   };
 
+  const handleDownloadPortalInvoice = (invoice: PortalInvoice) => {
+    setPortalMessage(null);
+
+    if (invoice.source === 'current') {
+      generatePDF({
+        clientInfo,
+        invoiceDetails,
+        companyInfo,
+        bankingDetails,
+        services,
+        tax,
+        notes,
+        subtotal: calculateSubtotal(),
+        grandTotal: calculateGrandTotal(),
+        currency: invoiceCurrency,
+        businessCurrency,
+        exchangeRate,
+      });
+      return;
+    }
+
+    const schedule = recurringSchedules.find((item) => item.id === invoice.scheduleId);
+    if (!schedule) {
+      setPortalMessage('This invoice needs its saved template before the PDF can be rebuilt.');
+      return;
+    }
+
+    const subtotal = calculateSubtotalFromServices(schedule.template.services);
+    generatePDF({
+      clientInfo: schedule.client,
+      invoiceDetails: {
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        dueDate: invoice.dueDate,
+      },
+      companyInfo,
+      bankingDetails,
+      services: schedule.template.services,
+      tax: schedule.template.tax,
+      notes: schedule.template.notes,
+      subtotal,
+      grandTotal: invoice.total,
+      currency: invoice.currency,
+      businessCurrency,
+      exchangeRate,
+    });
+  };
+
+  const handleRecordManualPayment = (invoice: PortalInvoice) => {
+    if (paidInvoiceIds.includes(invoice.id)) {
+      setPortalMessage(`${invoice.invoiceNumber} is already marked as paid.`);
+      return;
+    }
+
+    const payment: PortalPayment = {
+      id: createId(),
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: invoice.clientName,
+      amount: invoice.total,
+      currency: invoice.currency,
+      method: manualPaymentMethod,
+      recordedAt: new Date().toISOString(),
+    };
+
+    setPaidInvoiceIds((prev) => [invoice.id, ...prev]);
+    setPaymentHistory((prev) => [payment, ...prev].slice(0, 50));
+    setPortalMessage(`${manualPaymentMethod} payment recorded for ${invoice.invoiceNumber}.`);
+  };
+
   const handleSendEmail = async () => {
     if (!clientInfo.email?.trim()) {
       setEmailStatus('error');
@@ -811,10 +804,30 @@ export default function InvoiceForm() {
                 <LockKeyhole className="w-5 h-5 text-sky-600 dark:text-sky-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Google business login</h2>
+                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Business portal</h2>
                 <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
-                  Planned for NextAuth Google OAuth backed by Neon PostgreSQL. A business profile is created after first Google login when one does not already exist.
+                  Track paid and unpaid invoices from the current draft and recurring schedule output. The future Neon version will attach this workspace to a Google-owned business profile.
                 </p>
+                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-lg bg-stone-50 dark:bg-stone-800 p-3">
+                    <p className="text-xl font-bold text-stone-900 dark:text-stone-100">
+                      {portalInvoices.length}
+                    </p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">Invoices</p>
+                  </div>
+                  <div className="rounded-lg bg-stone-50 dark:bg-stone-800 p-3">
+                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {paidPortalInvoices.length}
+                    </p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">Paid</p>
+                  </div>
+                  <div className="rounded-lg bg-stone-50 dark:bg-stone-800 p-3">
+                    <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                      {unpaidPortalInvoices.length}
+                    </p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">Unpaid</p>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
@@ -824,10 +837,18 @@ export default function InvoiceForm() {
                 <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Secure client portal</h2>
+                <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">Manual collections</h2>
                 <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
-                  Clients can view paid/unpaid invoices, download PDFs, see payment history, pay online through Stripe/PayPal/Open Payments-compatible providers, or use displayed bank details.
+                  Online card payments are removed. Invoico now records PayShap, bank transfer, and bank deposit payments against the invoice history.
                 </p>
+                <div className="mt-4 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4">
+                  <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Outstanding
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                    {formatMoney(outstandingPortalTotal, invoiceCurrency)}
+                  </p>
+                </div>
               </div>
             </div>
           </Card>
@@ -1489,12 +1510,174 @@ export default function InvoiceForm() {
 
           <div className="lg:col-span-1 space-y-6">
             <Card variant="elevated" className="p-6">
-              <h3 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-4">Client Portal Preview</h3>
-              <div className="space-y-3 text-sm text-stone-600 dark:text-stone-400">
-                <p className="flex items-center gap-2"><FileCheck className="w-4 h-4 text-sky-500" /> Paid and unpaid invoice list</p>
-                <p className="flex items-center gap-2"><Download className="w-4 h-4 text-sky-500" /> PDF download for every invoice</p>
-                <p className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-sky-500" /> Online payments plus banking details fallback</p>
-                <p className="flex items-center gap-2"><History className="w-4 h-4 text-sky-500" /> Payment history over time</p>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/50 rounded-lg flex items-center justify-center">
+                  <FileCheck className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <h3 className="text-xl font-bold text-stone-800 dark:text-stone-100">
+                  Business Portal
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-5">
+                {(['all', 'unpaid', 'paid'] as PortalInvoiceStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setPortalFilter(status)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
+                      portalFilter === status
+                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                        : 'border-stone-200 text-stone-600 hover:bg-stone-50 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1.5">
+                  Collection Method
+                </label>
+                <select
+                  className={selectStyles}
+                  value={manualPaymentMethod}
+                  onChange={(e) =>
+                    setManualPaymentMethod(e.target.value as PaymentCollectionMethod)
+                  }
+                >
+                  <option value="PayShap">PayShap</option>
+                  <option value="Bank transfer">Bank transfer</option>
+                  <option value="Bank deposit">Bank deposit</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                {filteredPortalInvoices.slice(0, 4).map((invoice) => {
+                  const isPaid = paidInvoiceIds.includes(invoice.id);
+
+                  return (
+                    <div
+                      key={invoice.id}
+                      className="rounded-lg border border-stone-200 dark:border-stone-700 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-stone-800 dark:text-stone-100">
+                            {invoice.clientName}
+                          </p>
+                          <p className="text-xs text-stone-500 dark:text-stone-400">
+                            {invoice.invoiceNumber}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            isPaid
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                          }`}
+                        >
+                          {isPaid ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-bold text-stone-900 dark:text-stone-100">
+                            {formatMoney(invoice.total, invoice.currency)}
+                          </p>
+                          <p className="text-xs text-stone-500 dark:text-stone-400">
+                            Due {invoice.dueDate}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            leftIcon={<Download className="w-4 h-4" />}
+                            onClick={() => handleDownloadPortalInvoice(invoice)}
+                          >
+                            PDF
+                          </Button>
+                          <Button
+                            variant={isPaid ? 'ghost' : 'secondary'}
+                            size="sm"
+                            disabled={isPaid}
+                            onClick={() => handleRecordManualPayment(invoice)}
+                          >
+                            Record Paid
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filteredPortalInvoices.length === 0 && (
+                <p className="text-sm text-stone-500 dark:text-stone-400">
+                  No invoices match this status.
+                </p>
+              )}
+
+              {portalMessage && (
+                <p className="mt-4 text-sm font-medium text-sky-700 dark:text-sky-300">
+                  {portalMessage}
+                </p>
+              )}
+
+              <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-5">
+                <h4 className="text-sm font-semibold text-stone-800 dark:text-stone-100 mb-3">
+                  Client Payment Details
+                </h4>
+                <div className="space-y-2 text-sm text-stone-600 dark:text-stone-400">
+                  <p className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-sky-500" />
+                    PayShap: {bankingDetails.payShapCell || 'Add PayShap cell'}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-sky-500" />
+                    {bankingDetails.bankName || 'Bank'} account{' '}
+                    {bankingDetails.accountNumber || 'not set'}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Hash className="w-4 h-4 text-sky-500" />
+                    Reference: {invoiceDetails.invoiceNumber || 'invoice number'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-5">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-stone-800 dark:text-stone-100 mb-3">
+                  <History className="w-4 h-4 text-sky-500" />
+                  Payment History
+                </h4>
+                {paymentHistory.length === 0 && (
+                  <p className="text-sm text-stone-500 dark:text-stone-400">
+                    Payments recorded from PayShap, bank transfer, or deposit will appear here.
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {paymentHistory.slice(0, 5).map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="rounded-lg bg-stone-50 dark:bg-stone-800 p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-stone-800 dark:text-stone-100">
+                          {payment.invoiceNumber}
+                        </p>
+                        <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {formatMoney(payment.amount, payment.currency)}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        {payment.method} - {new Date(payment.recordedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </Card>
             <Card variant="elevated" className="p-8 sticky top-8">

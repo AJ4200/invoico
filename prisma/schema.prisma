@@ -136,6 +136,7 @@ model Payment {
   client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   provider        PaymentProvider
   providerRef     String?
+  proofNote       String?
   amount          Decimal
   currency        String
   status          PaymentStatus @default(PENDING)
@@ -151,16 +152,14 @@ enum InvoiceStatus {
 }
 
 enum PaymentProvider {
-  STRIPE
-  PAYPAL
-  OPEN_PAYMENTS
+  PAYSHAP
   BANK_TRANSFER
+  BANK_DEPOSIT
   MANUAL
 }
 
 enum PaymentStatus {
   PENDING
-  SUCCEEDED
-  FAILED
-  REFUNDED
+  CONFIRMED
+  REVERSED
 }
