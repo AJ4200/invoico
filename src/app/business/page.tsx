@@ -204,7 +204,7 @@ export default function BusinessPortalPage() {
               </h1>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link href="/">
+              <Link href="/workspace">
                 <Button variant="outline" rightIcon={<ArrowRight className="h-4 w-4" />}>
                   Create Invoice
                 </Button>

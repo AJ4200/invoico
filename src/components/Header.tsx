@@ -26,6 +26,12 @@ export function Header() {
           <div className="flex items-center gap-2">
             <nav className="hidden items-center gap-1 md:flex">
               <Link
+                href="/workspace"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+              >
+                Workspace
+              </Link>
+              <Link
                 href="/business"
                 className="rounded-lg px-3 py-2 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"
               >
@@ -38,6 +44,11 @@ export function Header() {
                 Client
               </Link>
             </nav>
+            <Link href="/workspace" className="hidden sm:block">
+              <span className="inline-flex items-center rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-900/10 transition-colors hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
+                Create
+              </span>
+            </Link>
             <motion.a
               href={GITHUB_URL}
               target="_blank"
