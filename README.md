@@ -10,7 +10,7 @@
 
 - 📄 **Professional PDF invoices** — Company branding, line items, payment instructions, and terms & conditions
 - 💰 **South African Rand (ZAR)** — Full currency support with proper formatting (e.g. R 1 234,56)
-- 📧 **Email invoices** — Send invoices directly to clients with PDF attachment via Resend
+- Email drafts - Open a prepared mail draft so each business can send invoices from its own email account
 - 🌙 **Dark mode** — Toggle with system preference detection and localStorage persistence
 - 📦 **Services with per-line discount** — Add line items; optionally discount per service (e.g. free demo: set amount, then discount same)
 - 📋 **Collapsible services** — Expand/collapse service cards; arrow rotates; new services auto-expand
@@ -34,7 +34,7 @@
 | UI & Styling | Tailwind CSS, DaisyUI |
 | Animations | Framer Motion |
 | PDF Generation | jsPDF |
-| Email | Resend |
+| Email | `mailto:` draft |
 | Icons | Lucide React |
 
 **Project Structure**
@@ -42,7 +42,7 @@
 ```text
 src/
 ├── app/              # Next.js App Router
-│   ├── api/          # API routes (e.g. send-invoice)
+│   ├── api/          # API routes
 │   ├── layout.tsx
 │   ├── page.tsx
 │   └── globals.css
@@ -77,20 +77,7 @@ npm install
 
 ### 🔐 Environment Configuration
 
-Create a local environment file for email functionality:
-
-```bash
-cp .env.example .env
-```
-
-Configure Resend for sending invoices:
-
-| Variable | Description |
-|----------|-------------|
-| `RESEND_API_KEY` | Resend API key (get from [resend.com](https://resend.com)) |
-| `RESEND_FROM_EMAIL` | (Optional) Verified sender address |
-| `COMPANY_NAME` | (Optional) Company name for email subject |
-
+No email provider setup is required. Invoico opens a prepared `mailto:` draft in the business user's own email app.
 ### ▶️ Run the App Locally
 
 ```bash
@@ -111,7 +98,7 @@ http://localhost:3000
 2. **Invoice details** — Invoice number is auto-generated from client name and date (editable). Set invoice and due dates.
 3. **Services** — Add line items with description, date, quantity, unit price, and optional per-line discount (e.g. free demo).
 4. **Tax** — Add tax (VAT) if applicable.
-5. **Download or email** — Export as PDF or send directly to the client’s email.
+5. **Download or email** - Export as PDF, then open a prepared email draft for the client.
 
 ---
 
@@ -132,29 +119,20 @@ Invoico generates professional PDF invoices with:
 ## 📧 Email Invoices
 
 1. Ensure the client email is filled in.
-2. Click **Email to Client**.
-3. The invoice is generated, attached as PDF, and sent via Resend.
-
-**Note:** For production, verify your domain in the Resend dashboard. The default sender (`onboarding@resend.dev`) is for testing only.
-
+2. Click **Download PDF** if you want to attach the invoice.
+3. Click **Open Email Draft**.
+4. Your email app opens with the client, subject, amount due, due date, PayShap, and bank details filled in.
+5. Attach the downloaded PDF and send from your own email account.
 ---
 
 ## 🔐 Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `RESEND_API_KEY` | Resend API key (required for email) |
-| `RESEND_FROM_EMAIL` | Custom sender (optional) |
-| `COMPANY_NAME` | Company name for emails (optional) |
-
+No email environment variables are required.
 ---
 
 ## 📡 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/send-invoice` | POST | Sends invoice email with PDF attachment |
-
+No email API endpoint is required for draft-based sending.
 ---
 
 ## 🤝 Contributing

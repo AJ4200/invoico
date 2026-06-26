@@ -5,7 +5,7 @@
 - `DATABASE_URL`: Neon PostgreSQL pooled connection string.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Google OAuth credentials.
 - `NEXTAUTH_SECRET` / `NEXTAUTH_URL`: session encryption and callback URL.
-- `RESEND_API_KEY` / `RESEND_FROM_EMAIL`: invoice email delivery.
+- No email provider credentials are required. The app opens a prepared `mailto:` draft so the business can send invoices from its own email account.
 - No online payment provider credentials are required. Payment collection is handled through PayShap, bank transfer, or bank deposit.
 
 ## Login and business provisioning
