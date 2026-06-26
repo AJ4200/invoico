@@ -101,6 +101,7 @@ export default function InvoiceForm() {
   const [generatingLabel, setGeneratingLabel] = useState('Generating PDF');
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [invoiceSaveMessage, setInvoiceSaveMessage] = useState<string | null>(null);
   const [savedDraft, setSavedDraft] = useStoredState<InvoiceDraft | null>(
     INVOICE_DRAFT_STORAGE_KEY,
     null
@@ -255,11 +256,20 @@ export default function InvoiceForm() {
             generated.push({
               id: createId(),
               scheduleId: schedule.id,
+              businessCurrency,
+              client: { ...schedule.client },
               clientName: schedule.client.name,
+              currency: invoiceCurrency,
+              exchangeRate,
               invoiceDate,
               dueDate,
               invoiceNumber,
               subtotal,
+              template: {
+                services: schedule.template.services,
+                tax: schedule.template.tax,
+                notes: schedule.template.notes,
+              },
               total,
               createdAt: todayISO(),
             });
@@ -313,7 +323,7 @@ export default function InvoiceForm() {
     runScheduleCheck();
     const interval = setInterval(runScheduleCheck, 60000);
     return () => clearInterval(interval);
-  }, [notificationStatus]);
+  }, [businessCurrency, exchangeRate, invoiceCurrency, notificationStatus, setGeneratedInvoices, setRecurringSchedules]);
 
   const handleInputChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
@@ -585,11 +595,20 @@ export default function InvoiceForm() {
     const generated: GeneratedInvoice = {
       id: createId(),
       scheduleId: schedule.id,
+      businessCurrency,
+      client: { ...schedule.client },
       clientName: schedule.client.name,
+      currency: invoiceCurrency,
+      exchangeRate,
       invoiceDate,
       dueDate,
       invoiceNumber,
       subtotal,
+      template: {
+        services: schedule.template.services,
+        tax: schedule.template.tax,
+        notes: schedule.template.notes,
+      },
       total,
       createdAt: todayISO(),
     };
@@ -644,6 +663,62 @@ export default function InvoiceForm() {
 
     await new Promise((resolve) => setTimeout(resolve, 500));
     setIsGenerating(false);
+  };
+
+  const handleSaveInvoice = () => {
+    setInvoiceSaveMessage(null);
+
+    if (!clientInfo.name.trim()) {
+      setInvoiceSaveMessage('Add a client name before saving this invoice.');
+      return;
+    }
+
+    if (!clientInfo.email.trim()) {
+      setInvoiceSaveMessage('Add a client email so this invoice can appear in the client portal.');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const normalizedServices = normalizeServices(services);
+    const existingInvoice = generatedInvoices.find(
+      (invoice) => invoice.invoiceNumber === invoiceDetails.invoiceNumber
+    );
+
+    const savedInvoice: GeneratedInvoice = {
+      id: existingInvoice?.id ?? createId(),
+      bankingDetails: { ...bankingDetails },
+      businessCurrency,
+      client: { ...clientInfo },
+      clientName: clientInfo.name,
+      companyInfo: { ...companyInfo },
+      currency: invoiceCurrency,
+      exchangeRate,
+      invoiceDate: invoiceDetails.invoiceDate,
+      dueDate: invoiceDetails.dueDate,
+      invoiceNumber: invoiceDetails.invoiceNumber,
+      subtotal: calculateSubtotalFromServices(normalizedServices),
+      template: {
+        services: normalizedServices,
+        tax,
+        notes,
+      },
+      total: calculateGrandTotal(),
+      createdAt: existingInvoice?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    setGeneratedInvoices((prev) => {
+      const withoutCurrent = prev.filter(
+        (invoice) => invoice.invoiceNumber !== savedInvoice.invoiceNumber
+      );
+      return [savedInvoice, ...withoutCurrent].slice(0, 50);
+    });
+
+    setInvoiceSaveMessage(
+      existingInvoice
+        ? `${invoiceDetails.invoiceNumber} updated in portals.`
+        : `${invoiceDetails.invoiceNumber} saved to portals.`
+    );
   };
 
   const getClientPortalUrl = () => {
@@ -1352,11 +1427,11 @@ export default function InvoiceForm() {
 
               <div className="mt-8 border-t border-stone-200 dark:border-stone-700 pt-6">
                 <h3 className="text-lg font-semibold text-stone-800 dark:text-stone-100 mb-4">
-                  Generated Invoices
+                  Saved Invoices
                 </h3>
                 {generatedInvoices.length === 0 && (
                   <p className="text-sm text-stone-500 dark:text-stone-400">
-                    Generated invoices will appear here when schedules run.
+                    Saved invoices and scheduled invoice runs will appear here.
                   </p>
                 )}
                 <div className="space-y-3">
@@ -1499,12 +1574,22 @@ export default function InvoiceForm() {
                 <Button
                   variant="primary"
                   size="lg"
+                  onClick={handleSaveInvoice}
+                  leftIcon={<FileCheck className="w-5 h-5" />}
+                  className="w-full"
+                >
+                  1. Save Invoice
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
                   onClick={handleGeneratePDF}
                   leftIcon={<Download className="w-5 h-5" />}
                   className="w-full"
                   isLoading={isGenerating}
                 >
-                  Download PDF
+                  2. Download PDF
                 </Button>
 
                 <Button
@@ -1514,10 +1599,21 @@ export default function InvoiceForm() {
                   leftIcon={<Send className="w-5 h-5" />}
                   className="w-full"
                 >
-                  Open Email Draft
+                  3. Open Email Draft
                 </Button>
               </div>
 
+              {invoiceSaveMessage && (
+                <p
+                  className={`text-sm font-medium text-center mt-4 ${
+                    invoiceSaveMessage.includes('Add ')
+                      ? 'text-red-600'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  {invoiceSaveMessage}
+                </p>
+              )}
               {emailStatus === 'success' && (
                 <p className="text-sm text-green-600 font-medium text-center mt-4">
                   Email draft opened for {clientInfo.email}. Attach the PDF before sending.
@@ -1530,7 +1626,7 @@ export default function InvoiceForm() {
               )}
 
               <p className="text-xs text-stone-500 text-center mt-4">
-                Download the PDF, then open a prepared email draft to send from your own account
+                Save first so the business and client portals can find it. Then download the PDF and attach it to the prepared email draft.
               </p>
             </Card>
           </div>

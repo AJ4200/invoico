@@ -21,12 +21,12 @@ export function buildGeneratedPortalInvoices(
       source: 'generated',
       scheduleId: invoice.scheduleId,
       clientName: invoice.clientName,
-      clientEmail: schedule?.client.email,
+      clientEmail: invoice.client?.email ?? schedule?.client.email,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
       invoiceNumber: invoice.invoiceNumber,
       total: invoice.total,
-      currency,
+      currency: invoice.currency ?? currency,
     };
   });
 }
@@ -36,6 +36,7 @@ export function downloadGeneratedPortalInvoice({
   businessCurrency,
   companyInfo,
   exchangeRate,
+  generatedInvoices,
   invoice,
   recurringSchedules,
 }: {
@@ -43,32 +44,36 @@ export function downloadGeneratedPortalInvoice({
   businessCurrency: string;
   companyInfo: CompanyInfo;
   exchangeRate: number;
+  generatedInvoices: GeneratedInvoice[];
   invoice: PortalInvoice;
   recurringSchedules: RecurringSchedule[];
 }) {
+  const savedInvoice = generatedInvoices.find((item) => item.id === invoice.id);
   const schedule = recurringSchedules.find((item) => item.id === invoice.scheduleId);
+  const client = savedInvoice?.client ?? schedule?.client;
+  const template = savedInvoice?.template ?? schedule?.template;
 
-  if (!schedule) {
+  if (!client || !template) {
     throw new Error('This invoice needs its saved template before the PDF can be rebuilt.');
   }
 
-  const subtotal = calculateSubtotalFromServices(schedule.template.services);
+  const subtotal = savedInvoice?.subtotal ?? calculateSubtotalFromServices(template.services);
   generatePDF({
-    clientInfo: schedule.client,
+    clientInfo: client,
     invoiceDetails: {
       invoiceNumber: invoice.invoiceNumber,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
     },
-    companyInfo,
-    bankingDetails,
-    services: schedule.template.services,
-    tax: schedule.template.tax,
-    notes: schedule.template.notes,
+    companyInfo: savedInvoice?.companyInfo ?? companyInfo,
+    bankingDetails: savedInvoice?.bankingDetails ?? bankingDetails,
+    services: template.services,
+    tax: template.tax,
+    notes: template.notes,
     subtotal,
     grandTotal: invoice.total,
     currency: invoice.currency,
-    businessCurrency,
-    exchangeRate,
+    businessCurrency: savedInvoice?.businessCurrency ?? businessCurrency,
+    exchangeRate: savedInvoice?.exchangeRate ?? exchangeRate,
   });
 }

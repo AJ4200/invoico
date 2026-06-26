@@ -44,11 +44,6 @@ export function Header() {
                 Client
               </Link>
             </nav>
-            <Link href="/workspace" className="hidden sm:block">
-              <span className="inline-flex items-center rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-900/10 transition-colors hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600">
-                Create
-              </span>
-            </Link>
             <motion.a
               href={GITHUB_URL}
               target="_blank"

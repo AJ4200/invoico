@@ -79,14 +79,22 @@ export interface RecurringSchedule {
 
 export interface GeneratedInvoice {
   id: string;
-  scheduleId: string;
+  scheduleId?: string;
+  bankingDetails?: BankingDetails;
+  businessCurrency?: string;
+  client?: ClientInfo;
   clientName: string;
+  companyInfo?: CompanyInfo;
+  currency?: string;
+  exchangeRate?: number;
   invoiceDate: string;
   dueDate: string;
   invoiceNumber: string;
   subtotal: number;
+  template?: ScheduleTemplate;
   total: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type PortalInvoiceSource = 'current' | 'generated';

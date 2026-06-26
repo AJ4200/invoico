@@ -111,6 +111,7 @@ export default function BusinessPortalPage() {
         businessCurrency: DEFAULT_BUSINESS_CURRENCY,
         companyInfo: DEFAULT_COMPANY_INFO,
         exchangeRate: 1,
+        generatedInvoices,
         invoice,
         recurringSchedules,
       });
